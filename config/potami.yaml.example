@@ -1,0 +1,45 @@
+# encoding: utf-8
+log:
+  path: ""
+  name: "potami"
+  level: "info"
+  zinc_url: ""
+  zinc_index: ""
+
+redis:
+  address: "potami-redis"
+  password: "potami"
+  username: "potami"
+  select: 0
+  disable_cache: true
+
+task:
+  tracking: true
+  retry_count: 1
+  
+pool:
+  max_worker: 2
+  max_idle_duration: 30
+  time_out: 60
+
+http:
+  host: 0.0.0.0
+  port: 6180
+
+openai:
+  api_key: "sk-xxxxx"
+  base_url: ""
+
+db:
+  type: "sqlite3"
+  path: "./data/potami.db"
+
+tavily:
+  api_keys: 
+    - "tvly-xxxxx"
+  days: 7
+  debug: true
+
+google_custom_search:
+  api_key: ""
+  cx: ""

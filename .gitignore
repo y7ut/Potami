@@ -1,0 +1,17 @@
+.DS_Store
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.log
+
+data/
+log/
+logs/
+potami
+potactl
+config/potami.yaml
