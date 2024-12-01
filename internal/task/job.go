@@ -2,6 +2,8 @@ package task
 
 import (
 	"context"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Task中的工作
@@ -33,6 +35,10 @@ func (j *JobHelper) GetTask() *Task {
 
 func (j *JobHelper) SetTask(t *Task) {
 	j.Task = t
+}
+
+func (j *JobHelper) Logger() *logrus.Entry {
+	return logrus.WithField("task_id", j.GetTask().ID)
 }
 
 func (j *JobHelper) GetAttributes(keys ...string) map[string]interface{} {
