@@ -40,24 +40,24 @@ func (bct *BoardCastTracker) Notice(ctx context.Context, complete float64, t *ta
 		return
 	}
 
-	boardcast := bct.boardcastLoader(t, BoardcastSelfCheck)
+	bc := bct.boardcastLoader(t, BoardcastSelfCheck)
 	eventTranslation := func(complete float64) string {
 		if complete >= 1 {
-			return "finished"
+			return boardcast.FinishEvent
 		}
 		if complete == 0 {
-			return "start"
+			return boardcast.StartEvent
 		}
 		return "update"
 	}
 
-	boardcast.Send(eventTranslation(complete))
+	bc.Send(eventTranslation(complete))
 	if complete >= 1 || t.Arrived == t.JobsPipline.Len() {
 		// 任务完成
 		go func() {
 			logrus.WithField("task_id", t.ID).Info("boardcast complete")
 			time.Sleep(5 * time.Second)
-			boardcast.Stop()
+			bc.Stop()
 		}()
 	}
 	logrus.WithField("task_id", t.ID).Debug(fmt.Sprintf("%s [boardcast]", fmt.Sprintf("Worker[%s]的工作进度已经到了------- %.2f%%", t.Call, complete*100)))

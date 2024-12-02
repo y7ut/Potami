@@ -28,5 +28,17 @@ func XMLOutPutParser(content string, parses ...string) (map[string]interface{}, 
 		// 将匹配到的内容替换掉 {{标签}} 的格式
 		values[p] = strings.Trim(match[1], "\n")
 	}
+
+	missAttributes := make([]string, 0)
+	for _, p := range parses {
+		if v, ok := values[p]; !ok || v == "" {
+			missAttributes = append(missAttributes, p)
+		}
+	}
+
+	if len(missAttributes) > 0 {
+		return nil, fmt.Errorf("output parse miss attributes: %v", strings.Join(missAttributes, ","))
+	}
+
 	return values, nil
 }

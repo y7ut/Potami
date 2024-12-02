@@ -11,7 +11,7 @@ import (
 type SearchService struct {
 	task.JobHelper
 
-	Engine    SearchEngine
+	Engine    Engine
 	Options   []SearchEngineOption
 	BlockSize int
 	DepthMode bool
@@ -33,13 +33,13 @@ func (ss *SearchService) Handle(ctx context.Context) error {
 		ss.Logger().WithError(err).Error("search error")
 		return err
 	}
-
-	ss.SetAttribute(ss.OutputField, DocumentsCompress(result, ss.BlockSize, ss.DepthMode))
+	output := DocumentsCompress(result, ss.BlockSize, ss.DepthMode)
+	ss.SetAttribute(ss.OutputField, output)
 	mode := "depth"
 	if ss.DepthMode {
 		mode = "flat"
 	}
-	ss.Logger().WithFields(ss.GetAttributes()).Debugf("search finish with block size: %d, result size: %d and mode: %v", ss.BlockSize, len(result), mode)
+	ss.Logger().WithField(ss.OutputField, output).Debugf("search finish with block size: %d, result size: %d and mode: %v", ss.BlockSize, len(result), mode)
 	return nil
 }
 

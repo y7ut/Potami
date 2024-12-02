@@ -9,14 +9,14 @@ import (
 )
 
 // JsonPathOutputParser 解析JSON输出根据jsonPath规则
-func JsonPathOutputParser(output []byte, jsonPath map[string]string) (map[string]interface{}, error) {
+func JsonPathOutputParser(output []byte, jsonPaths map[string]string) (map[string]interface{}, error) {
 	var outputSchema interface{}
 	err := json.Unmarshal(output, &outputSchema)
 	if err != nil {
 		return nil, err
 	}
 	result := make(map[string]interface{})
-	for k, jp := range jsonPath {
+	for k, jp := range jsonPaths {
 		res, err := jsonpath.JsonPathLookup(outputSchema, jp)
 		if err != nil {
 			return nil, err

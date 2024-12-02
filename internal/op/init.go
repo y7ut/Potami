@@ -28,8 +28,8 @@ func Initialized() {
 			tracker.NewRedisTracker(conf.GetRedisClient()),
 		},
 	)	
-	// InitStreams()
-	// InitStreamFactory()
+	InitStreams()
+	InitStreamFactory()
 	StartCrontab()
 	logrus.Info("op initialized")
 }

@@ -3,7 +3,7 @@ package search
 import "context"
 
 // SearchEngine 搜索引擎
-type SearchEngine interface {
+type Engine interface {
 	Search(ctx context.Context, query string, options ...SearchEngineOption) ([]Document, error)
 }
 
