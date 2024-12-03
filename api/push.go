@@ -6,11 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/y7ut/collection"
-	"github.com/y7ut/potami/internal/boardcast"
 	"github.com/y7ut/potami/internal/op"
 	"github.com/y7ut/potami/internal/schema"
 	"github.com/y7ut/potami/internal/task"
-	"github.com/y7ut/potami/internal/task/tracker"
 )
 
 type StreamTask struct {
@@ -55,10 +53,7 @@ func Push(c *gin.Context) {
 		return
 	}
 
-	bc, loaded := op.TaskBoardCasts.LoadOrStore(currentTask.ID, boardcast.NewBoardCast(currentTask, tracker.BoardcastSelfCheck))
-	if !loaded {
-		bc.Start()
-	}
+	bc := op.BoardCastCreateOrLoad(currentTask)
 
 	_, err = op.TaskQueue.PushTask(currentTask)
 	if err != nil {

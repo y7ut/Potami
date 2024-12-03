@@ -4,7 +4,7 @@ type Job struct {
 	Name        string   `mapstructure:"name" json:"name" yaml:"name"`                                                   // job 的名称
 	Type        string   `mapstructure:"type" json:"type" yaml:"type" validate:"required,oneof=prompt api_tool search" ` // job 的类型
 	Description string   `mapstructure:"description" json:"description" yaml:"description"`                              // 通用 job 的描述
-	Params      []string `mapstructure:"params" json:"params" yaml:"params"`                                             // 通用 job 中的参数
+	Params      []string `mapstructure:"params,omitempty" json:"params,omitempty" yaml:"params,omitempty"`               // 通用 job 中的参数
 
 	LlmModel     string   `mapstructure:"llm_model,omitempty" json:"llm_model,omitempty" yaml:"llm_model,omitempty"`             // 仅在 prompt 类型的 job 中使用
 	Temperature  float64  `mapstructure:"temperature,omitempty" json:"temperature,omitempty" yaml:"temperature,omitempty"`       // 仅在 prompt 类型的 job 中使用

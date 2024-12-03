@@ -2,7 +2,6 @@ package tracker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -11,10 +10,10 @@ import (
 )
 
 type BoardCastTracker struct {
-	boardcastLoader func(t *task.Task, selfcheck func(t *task.Task) string) *boardcast.Boardcast[*task.Task]
+	boardcastLoader func(t *task.Task) *boardcast.Boardcast[*task.Task]
 }
 
-func BoardcastSelfCheck(t *task.Task) string {
+func AnalyzeTaskEventState(t *task.Task) string {
 	event := boardcast.HeartbeatEvent
 	if t.Health() == 0 {
 		event = boardcast.DeadEvent
@@ -27,7 +26,7 @@ func BoardcastSelfCheck(t *task.Task) string {
 	return event
 }
 
-func NewBoardCastTracker(loader func(t *task.Task, selfcheck func(t *task.Task) string) *boardcast.Boardcast[*task.Task]) *BoardCastTracker {
+func NewBoardCastTracker(loader func(t *task.Task) *boardcast.Boardcast[*task.Task]) *BoardCastTracker {
 	return &BoardCastTracker{
 		boardcastLoader: loader,
 	}
@@ -40,7 +39,7 @@ func (bct *BoardCastTracker) Notice(ctx context.Context, complete float64, t *ta
 		return
 	}
 
-	bc := bct.boardcastLoader(t, BoardcastSelfCheck)
+	bc := bct.boardcastLoader(t)
 	eventTranslation := func(complete float64) string {
 		if complete >= 1 {
 			return boardcast.FinishEvent
@@ -55,10 +54,9 @@ func (bct *BoardCastTracker) Notice(ctx context.Context, complete float64, t *ta
 	if complete >= 1 || t.Arrived == t.JobsPipline.Len() {
 		// 任务完成
 		go func() {
-			logrus.WithField("task_id", t.ID).Info("boardcast complete")
+			logrus.WithField("task_id", t.ID).Info("boardcast tracker exit")
 			time.Sleep(5 * time.Second)
 			bc.Stop()
 		}()
 	}
-	logrus.WithField("task_id", t.ID).Debug(fmt.Sprintf("%s [boardcast]", fmt.Sprintf("Worker[%s]的工作进度已经到了------- %.2f%%", t.Call, complete*100)))
 }

@@ -40,7 +40,7 @@ type Boardcast[T any] struct {
 
 // NewBoardCast 初始化一个资源广播
 func NewBoardCast[T any](resource T, selfCheckFunc func(resource T) string) *Boardcast[T] {
-	return &Boardcast[T]{
+	b := &Boardcast[T]{
 		Resource: resource,
 		eventSource: eventsource.New(
 			&eventsource.Settings{
@@ -61,6 +61,8 @@ func NewBoardCast[T any](resource T, selfCheckFunc func(resource T) string) *Boa
 		once:          sync.Once{},
 		selfCheckFunc: selfCheckFunc,
 	}
+	b.Start()
+	return b
 }
 
 // Start 开启广播

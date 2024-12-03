@@ -1,0 +1,55 @@
+services:
+  zinc-search:
+    image: elestio/zinc:latest
+    restart: always
+    ports:
+      - 4080:4080
+    volumes:
+      - ./data/zinc:/usr/share/zincsearch/data
+    environment:
+      - ZINC_DATA_PATH=/usr/share/zincsearch/data
+      - ZINC_FIRST_ADMIN_USER=potami
+      - ZINC_FIRST_ADMIN_PASSWORD=potami_password
+    container_name: zinc-search
+    networks:
+      - potami-network
+
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - 6379:6379
+    container_name: redis
+    networks:
+      - potami-network
+    environment:
+      REDIS_REQUIREPASS: potami
+    healthcheck:
+        test: [ "CMD-SHELL", "redis-cli ping" ]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+  potami:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 6180:6180
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - potami-network
+    volumes:
+      - ./config:/app/config
+      - ./log:/app/log
+      - ./data:/app/data
+    depends_on:
+      - zinc-search
+      - redis
+    container_name: potami
+  
+
+networks:
+  potami-network:
+    driver: bridge

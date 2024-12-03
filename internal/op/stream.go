@@ -68,12 +68,21 @@ func initStreamsFromDB() map[string]*schema.Stream {
 				logrus.Fatalf("get db jobs config error: %s", err)
 			}
 		}
+		var params []string
+		if job.Params.Valid && job.Params.String != "" {
+			params = strings.Split(job.Params.String, ",")
+		}
+
+		var outputs []string
+		if job.Output.Valid && job.Output.String != "" {
+			outputs = strings.Split(job.Output.String, ",")
+		}
 
 		currentJob := &schema.Job{
 			Name:          job.Name,
 			Type:          job.Type,
 			Description:   job.Description.String,
-			Params:        strings.Split(job.Params.String, ","),
+			Params:        params,
 			LlmModel:      job.LlmModel.String,
 			Temperature:   job.Temperature.Float64,
 			TopP:          job.TopP.Float64,
@@ -82,7 +91,7 @@ func initStreamsFromDB() map[string]*schema.Stream {
 			Template:      job.Template.String,
 			Endpoint:      job.Endpoint.String,
 			Method:        job.Method.String,
-			Output:        strings.Split(job.Output.String, ","),
+			Output:        outputs,
 			OutputParses:  outputParses,
 			SearchEngine:  job.SearchEngine.String,
 			SearchOptions: searchOptions,
