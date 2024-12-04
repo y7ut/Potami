@@ -54,8 +54,8 @@ func (bct *BoardCastTracker) Notice(ctx context.Context, complete float64, t *ta
 	if complete >= 1 || t.Arrived == t.JobsPipline.Len() {
 		// 任务完成
 		go func() {
-			logrus.WithField("task_id", t.ID).Info("boardcast tracker exit")
 			time.Sleep(5 * time.Second)
+			logrus.WithField("task_id", t.ID).Info("boardcast tracker exit")
 			bc.Stop()
 		}()
 	}

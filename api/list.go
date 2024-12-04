@@ -29,7 +29,7 @@ type TaskItem struct {
 	CloseAt     time.Time `json:"close_at"`    // 关闭时间
 }
 
-func List(c *gin.Context) {
+func TaskList(c *gin.Context) {
 
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil || limit < 1 {

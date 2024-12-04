@@ -127,7 +127,6 @@ func (t *Boardcast[T]) Stop() {
 	if t.IsStop {
 		return
 	}
-
 	t.IsStop = true
 	close(t.stopCh)
 }

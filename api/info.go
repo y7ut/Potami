@@ -7,7 +7,7 @@ import (
 	"github.com/y7ut/potami/internal/op"
 )
 
-func Info(c *gin.Context) {
+func TaskInfo(c *gin.Context) {
 
 	tastInfo, ok := op.Tasks.Load(c.Param("uuid"))
 	if !ok {

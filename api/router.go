@@ -6,16 +6,21 @@ func RegisterRouter(router *gin.Engine) {
 	// v1
 	api := router.Group("/api")
 	{
-		api.GET("/stream", StreamsList)
-		api.POST("/stream", StreamApply)
-		api.GET("/stream/:stream", StreamInfo)
-		api.DELETE("/stream/:stream", StreamRemove)
+		streamsRoute := api.Group("/stream")
+		{
+			streamsRoute.GET("", StreamsList)
+			streamsRoute.POST("", StreamApply)
+			streamsRoute.GET("/:stream", StreamInfo)
+			streamsRoute.DELETE("/:stream", StreamRemove)
+		}
 
-		api.POST("/complete/:stream", Push)
+		tasksRoute := api.Group("/task")
+		{
+			tasksRoute.GET("", TaskList)
+			tasksRoute.GET("/:uuid", TaskInfo)
+			tasksRoute.GET("/:uuid/look", TaskLook)
+		}
 
-		api.GET("/info/:uuid", Info)
-		api.GET("/look/:uuid", Look)
-
-		api.GET("/list", List)
+		api.POST("/complete/:stream", CompleteStream)
 	}
 }

@@ -18,7 +18,7 @@ type StreamTask struct {
 	Mode     string                 `json:"mode,omitempty" validate:"oneof=sync async stream"`
 }
 
-func Push(c *gin.Context) {
+func CompleteStream(c *gin.Context) {
 	var streamTaskReq StreamTask
 
 	if err := c.ShouldBindJSON(&streamTaskReq); err != nil {
@@ -53,7 +53,7 @@ func Push(c *gin.Context) {
 		return
 	}
 
-	bc := op.BoardCastCreateOrLoad(currentTask)
+	bc := op.BoardCastLoader(currentTask)
 
 	_, err = op.TaskQueue.PushTask(currentTask)
 	if err != nil {
