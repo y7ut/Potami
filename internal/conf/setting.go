@@ -24,8 +24,6 @@ var (
 	HttpServer httpServer
 	// OPENAI openai 配置
 	OpenAI openai
-	// FENGCHAO fengchao 配置
-	FengChao fengchao
 	// DB 数据库配置
 	DB db
 	// Tavily tavily 配置
@@ -60,7 +58,6 @@ func InitConfig() {
 		"pool":                 &GoroutinePool,
 		"http":                 &HttpServer,
 		"openai":               &OpenAI,
-		"fengchao":             &FengChao,
 		"db":                   &DB,
 		"redis":                &RedisConf,
 		"tavily":               &Tavily,

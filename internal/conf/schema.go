@@ -50,12 +50,6 @@ type openai struct {
 	BaseURL string `mapstructure:"base_url"`
 }
 
-type fengchao struct {
-	APIKey    string `mapstructure:"api_key"`
-	APISecret string `mapstructure:"api_secret"`
-	BaseURL   string `mapstructure:"base_url"`
-}
-
 type db struct {
 	Type string `mapstructure:"type"`
 	Path string `mapstructure:"path"`

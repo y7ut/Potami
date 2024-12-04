@@ -24,12 +24,12 @@ func Initialized() {
 		TaskQueue,
 		TaskPool,
 		[]task.TaskTracker{
-			tracker.NewBoardCastTracker(BoardCastCreateOrLoad),
+			tracker.NewBoardCastTracker(BoardCastLoader),
 			tracker.NewRedisTracker(conf.GetRedisClient()),
 		},
-	)	
-	// InitStreams()
-	// InitStreamFactory()
+	)
+	InitStreams()
+	InitStreamFactory()
 	StartCrontab()
 	logrus.Info("op initialized")
 }

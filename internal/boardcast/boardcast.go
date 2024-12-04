@@ -17,7 +17,7 @@ import (
 const (
 	Heartbeat      = 5 // 实际心跳包发送间隔时间
 	HeartbeatEvent = "heartbeat"
-	FinishEvent    = "finish"
+	FinishEvent    = "finished"
 	StartEvent     = "start"
 	UpdateEvent    = "update"
 	DeadEvent      = "dead"
@@ -40,10 +40,11 @@ type Boardcast[T any] struct {
 
 // NewBoardCast 初始化一个资源广播
 func NewBoardCast[T any](resource T, selfCheckFunc func(resource T) string) *Boardcast[T] {
-	return &Boardcast[T]{
+	b := &Boardcast[T]{
 		Resource: resource,
 		eventSource: eventsource.New(
 			&eventsource.Settings{
+				Timeout:        2 * time.Second,
 				CloseOnTimeout: true,
 				IdleTimeout:    time.Duration(2*Heartbeat) * time.Second,
 				Gzip:           true,
@@ -60,6 +61,8 @@ func NewBoardCast[T any](resource T, selfCheckFunc func(resource T) string) *Boa
 		once:          sync.Once{},
 		selfCheckFunc: selfCheckFunc,
 	}
+	b.Start()
+	return b
 }
 
 // Start 开启广播
@@ -82,19 +85,8 @@ func (t *Boardcast[T]) Start() {
 					if time.Since(t.LastBoardcastAt) < time.Duration(Heartbeat)*time.Second {
 						continue
 					}
-					// event := "heartbeat"
-
-					// if t.Flow.Health() == 0 {
-					// 	event = "dead"
-					// 	t.Send(event)
-					// 	return
-					// }
-
-					// if t.Flow.StartAt == (time.Time{}) {
-					// 	event = "wait"
-					// }
-					// t.Send(event)
-					t.selfCheckFunc(t.Resource)
+					event := t.selfCheckFunc(t.Resource)
+					t.Send(event)
 				}
 			}
 		}()
@@ -126,6 +118,7 @@ func (t *Boardcast[T]) Send(event string) {
 	if err != nil {
 		logrus.Errorf("boardcast error: %s", err)
 	}
+	logrus.Debugf("boardcast event: %s", event)
 	t.eventSource.SendEventMessage(string(stream), event, strconv.Itoa(t.RoundID))
 }
 
@@ -134,7 +127,6 @@ func (t *Boardcast[T]) Stop() {
 	if t.IsStop {
 		return
 	}
-
 	t.IsStop = true
 	close(t.stopCh)
 }

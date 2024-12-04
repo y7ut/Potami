@@ -29,7 +29,7 @@ type Task struct {
 	ID   string // 所执行的流程ID
 	Call string // 任务名称
 
-	ErrorStacks []error // 错误堆栈
+	ErrorStacks []string // 错误堆栈
 
 	MetaData map[string]interface{} // 任务携带的数据
 	Option   map[string]interface{} // 任务配置
@@ -120,7 +120,7 @@ func (task *Task) BreakOut() {
 func (task *Task) BreakOutWithError(err error) bool {
 
 	task.Lock()
-	task.ErrorStacks = append(task.ErrorStacks, fmt.Errorf("#%d-%d:%+v", task.Arrived, task.errorHit, err.Error()))
+	task.ErrorStacks = append(task.ErrorStacks, fmt.Sprintf("#%d-%d:%+v", task.Arrived, task.errorHit, err.Error()))
 	task.ErrorReopenStage = task.CurrentStage
 	oldhit := task.errorHit
 	task.errorHit = oldhit + 1

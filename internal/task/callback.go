@@ -36,7 +36,7 @@ type CallBackParams struct {
 	CompleteAt time.Time `json:"complete_at"` // 完成时间
 	CloseAt    time.Time `json:"close_at"`    // 关闭时间
 
-	Errors []error `json:"errors,omitempty"`
+	Errors []string `json:"errors,omitempty"`
 
 	Data map[string]interface{} `json:"data"`
 }

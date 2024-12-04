@@ -187,7 +187,7 @@ jobs:
   - name: cover_search
     type: api_tool
     description: 搜索封面
-    endpoint: https://picsearch.ijiwei.com/v1/pic/search
+    endpoint: https://picsearch.y7ut.com/v1/pic/search
     method: GET
     params:
       - "tags"
@@ -206,7 +206,7 @@ jobs:
   - name: save_draftbox
     type: api_tool
     description: 保存草稿箱
-    endpoint: https://new.ijiwei.com/v1/draft/save
+    endpoint: https://new.y7ut.com/v1/draft/save
     method: POST
     params:
       - "title"
@@ -221,14 +221,6 @@ jobs:
 ```
 
 ## potactl
-
-本地构建
-
-```sh
-go build -o potactl ./cli/main.go
-```
-
-`potactl`是`Potami`的`cli`工具，可以用来管理`Stream`
 
 ### 上下文管理
 
@@ -258,7 +250,7 @@ endpoint is http://127.0.0.1:6180
 potactl stream apply -f config/stream_example/company_qa_baidu.yaml
 ```
 
-当然也可以从标准输出传入yaml文本内容, 或直接通过参数传入
+当然也可以从标准输出传入yaml文本内容, 或直接通过参数传入, 
 
 ### 查看全部Stream
 

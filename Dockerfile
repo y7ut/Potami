@@ -1,9 +1,5 @@
 FROM golang:1.23 AS build
 
-ENV GOPROXY="https://goproxy.cn"
-
-ENV CGO_ENABLED=0
-
 WORKDIR /app
 
 COPY . /app

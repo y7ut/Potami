@@ -29,7 +29,7 @@ func ValidateStream(stream Stream) error {
 	jobNames := make(map[string]bool)
 	paramsFlow := make(map[string]bool)
 
-	for _, job := range stream.Jobs {
+	for index, job := range stream.Jobs {
 		// 检查 Job 名称唯一性
 		if jobNames[job.Name] {
 			return fmt.Errorf("job 名称 %s 重复", job.Name)
@@ -63,7 +63,7 @@ func ValidateStream(stream Stream) error {
 		}
 
 		if job.Type == "search" {
-			if _, ok := paramsFlow[job.QueryField]; !ok {
+			if _, ok := paramsFlow[job.QueryField]; !ok && index > 0 {
 				return fmt.Errorf("search %s 的 query_field %s 不在 params 中", job.Name, job.QueryField)
 			}
 			paramsFlow[job.OutputField] = true
