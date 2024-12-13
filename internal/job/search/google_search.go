@@ -25,12 +25,12 @@ func NewGoogleCustomSearch() *GoogleCustomSearch {
 	}
 }
 
-func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string, options ...SearchEngineOption) ([]Document, error) {
+func (gcs *GoogleCustomSearch) Search(ctx context.Context, param *SearchParam) ([]Document, error) {
 
-	if err := gcs.applyOptions(options...); err != nil {
+	if err := gcs.applyParams(param); err != nil {
 		return nil, err
 	}
-	gcs.Query = query
+
 	if gcs.Debug {
 		fmt.Printf("google custom search api input: %s\n", gcs.Query)
 	}
@@ -78,16 +78,14 @@ func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string, options
 
 }
 
-func (gcs *GoogleCustomSearch) applyOptions(options ...SearchEngineOption) error {
-	om := DefaultOptionsManager()
-	for _, applyOption := range options {
-		applyOption(om)
-	}
-	gcs.Debug = om.Debug
-	if gcs.MaxResults > 100 {
-		gcs.MaxResults = 100
-	}
-	gcs.MaxResults = om.Limit
+// applyParams
+func (gcs *GoogleCustomSearch) applyParams(param *SearchParam) error {
 
+	gcs.Debug = param.Debug
+	if param.Limit > 100 {
+		return fmt.Errorf("google custom search max results error: %d", gcs.MaxResults)
+	}
+	gcs.MaxResults = param.Limit
+	gcs.Query = param.Query
 	return nil
 }

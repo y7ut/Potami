@@ -6,10 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/spf13/cobra"
 	"github.com/y7ut/potami/api"
 	"github.com/y7ut/potami/internal/op"
 	"github.com/y7ut/potami/internal/server"
-	"github.com/spf13/cobra"
 )
 
 var RunCmd = &cobra.Command{
@@ -32,6 +32,7 @@ func Run() {
 		cancel()
 	}()
 	op.Dispatcher.Start(ctx)
+	// op.StartTaskKeeper(ctx)
 
 	server.Initialized()
 	server.Route(api.RegisterRouter)

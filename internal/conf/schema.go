@@ -13,8 +13,14 @@ type logConf struct {
 	Path      string `mapstructure:"path"`
 	Name      string `mapstructure:"name"`
 	Level     string `mapstructure:"level"`
-	ZineURL   string `mapstructure:"zinc_url"`
 	ZineIndex string `mapstructure:"zinc_index"`
+}
+
+type zincConf struct {
+	Address   string `mapstructure:"address"`
+	User      string `mapstructure:"user"`
+	Pass      string `mapstructure:"pass"`
+	DataIndex string `mapstructure:"data_index"`
 }
 
 type redisConf struct {

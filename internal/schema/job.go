@@ -15,8 +15,6 @@ type Job struct {
 	Output       []string `mapstructure:"output,omitempty" json:"output,omitempty" yaml:"output,omitempty"`                      // prompt 类型 job 的输出
 
 	SearchEngine  string                 `mapstructure:"search_engine,omitempty" json:"search_engine,omitempty" yaml:"search_engine,omitempty"`    // 仅在 search 类型的 job 中使用
-	SearchLimit   int                    `mapstructure:"search_limit,omitempty" json:"search_limit,omitempty" yaml:"search_limit,omitempty"`       // 仅在 search 类型的 job 中使用
-	BlockSize     int                    `mapstructure:"block_size,omitempty" json:"block_size,omitempty" yaml:"block_size,omitempty"`             // 仅在 search 类型的 job 中使用
 	SearchOptions map[string]interface{} `mapstructure:"search_options,omitempty" json:"search_options,omitempty" yaml:"search_options,omitempty"` // 仅在 search 类型的 job 中使用
 	QueryField    string                 `mapstructure:"query_field,omitempty" json:"query_field,omitempty" yaml:"query_field,omitempty"`          // 仅在 search 类型的 job 中使用
 	OutputField   string                 `mapstructure:"output_field,omitempty" json:"output_field,omitempty" yaml:"output_field,omitempty"`       // 仅在 search 类型的 job 中使用

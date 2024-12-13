@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/y7ut/potami/api"
 	"github.com/y7ut/potami/internal/boardcast"
+	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/pkg/json"
 )
 
@@ -127,15 +128,80 @@ func init() {
 	StreamCommand.AddCommand(CompleteCommand)
 }
 
+type TaskInfo struct {
+	Traces   []*task.TraceRecord    `json:"traces"`
+	MetaData map[string]interface{} `json:"meta_data"`
+	UUID     string                 `json:"uuid"`
+}
+
 func completionTaskOutputParses(resp *http.Response) {
 	reader := bufio.NewReader(resp.Body)
 	defer resp.Body.Close()
 	tmpbuffer := make([]byte, 0)
-	currentDescription := ""
-	currentOutput := make(map[string]interface{})
-	numberOfOutput := 1
+
 	finish := false
 	taskID := ""
+	traceStates := make(map[string]bool, 0)
+	MetaData := make(map[string]string, 0)
+	displayTrace := func(traceRecords []*task.TraceRecord) []*task.TraceRecord {
+		retrys := make([]*task.TraceRecord, 0)
+		for _, traceRecord := range traceRecords {
+			if traceRecord == nil {
+				continue
+			}
+			if _, ok := traceStates[traceRecord.TraceID]; ok {
+				continue
+			}
+			if traceRecord.FinishAt != "" || traceRecord.Error != "" {
+				fmt.Printf("Trace: %s\n", traceRecord.TraceID)
+				fmt.Printf("Name: %s\n", traceRecord.Name)
+				fmt.Printf("Duration: %d ms\n", traceRecord.Duration)
+				fmt.Printf("Bill: $%f\n", traceRecord.Bill)
+
+				fmt.Printf("Options:")
+				for k, v := range traceRecord.Options {
+					fmt.Printf(" %s: %v ", k, v)
+				}
+				fmt.Print("\n")
+				fmt.Println(strings.Repeat("-", TableBoxWidth*2) + "\n")
+
+				fmt.Println(" - Inputs:")
+				for _, input := range traceRecord.Inputs {
+					fmt.Printf("[%s]\n\n", input)
+					attributeOfInput, ok := MetaData[input]
+
+					if ok {
+						fmt.Printf("%s\n", attributeOfInput)
+					} else {
+						fmt.Printf("N/A\n")
+					}
+				}
+				fmt.Println(strings.Repeat("-", TableBoxWidth) + "\n")
+				if traceRecord.Error != "" {
+					fmt.Printf(" - Error: \n %s\n", traceRecord.Error)
+					fmt.Println(strings.Repeat("-", TableBoxWidth*2) + "\n")
+					traceStates[traceRecord.TraceID] = true
+					if traceRecord.Retrys != nil {
+						retrys = append(retrys, traceRecord.Retrys...)
+					}
+					continue
+				}
+				fmt.Println(" - Outputs:")
+				for _, output := range traceRecord.Outputs {
+					fmt.Printf("[%s]\n\n", output)
+					attributeOfOutput, ok := MetaData[output]
+					if ok {
+						fmt.Printf("%s\n", attributeOfOutput)
+					} else {
+						fmt.Printf("N/A\n")
+					}
+				}
+				fmt.Println(strings.Repeat("-", TableBoxWidth*2) + "\n")
+				traceStates[traceRecord.TraceID] = true
+			}
+		}
+		return retrys
+	}
 	for {
 		line, isPrefix, err := reader.ReadLine()
 		if err != nil {
@@ -196,52 +262,40 @@ func completionTaskOutputParses(resp *http.Response) {
 			}
 			continue
 		}
-		var msg map[string]interface{}
-
-		err = json.Unmarshal(line, &msg)
-		if err != nil {
-			continue
-		}
-		task := msg
+		var t TaskInfo
 		if single {
-			task = msg["task"].(map[string]interface{})
+			var msg struct {
+				Task TaskInfo `json:"task"`
+			}
+			err = json.Unmarshal(line, &msg)
+			if err != nil {
+				continue
+			}
+			t = msg.Task
+		} else {
+			var msg TaskInfo
+			err = json.Unmarshal(line, &msg)
+			if err != nil {
+				continue
+			}
+			t = msg
 		}
+
 		if taskID == "" {
-			taskID = task["uuid"].(string)
+			taskID = t.UUID
 			fmt.Printf("任务ID: %s\n", taskID)
 			fmt.Println(strings.Repeat("-", TableBoxWidth*2) + "\n")
 		}
-		metadata, ok := task["meta_data"]
-		if !ok {
-			continue
-		}
-		metadataMap, ok := metadata.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		description, ok := task["current_description"]
-		if !ok {
-			continue
+
+		for k, v := range t.MetaData {
+			MetaData[k] = editStringSlim(v.(string), 1000)
 		}
 
-		var newsParamsCount int
-		for k, v := range metadataMap {
-			if currentOutput[k] != v {
-				currentOutput[k] = v
-				fmt.Printf("[%d] %s:\n%v\n\n", numberOfOutput, k, v)
-				numberOfOutput++
-				newsParamsCount++
-			}
-		}
-		if newsParamsCount > 0 {
+		retrys := displayTrace(t.Traces)
+		if len(retrys) > 0 {
+			fmt.Println("Retrys:")
 			fmt.Println(strings.Repeat("-", TableBoxWidth*2) + "\n")
+			displayTrace(retrys)
 		}
-
-		if currentDescription != description.(string) {
-			currentDescription = description.(string)
-			fmt.Printf("当前阶段: %s\n\n", currentDescription)
-			fmt.Println(strings.Repeat("-", TableBoxWidth*2) + "\n")
-		}
-
 	}
 }

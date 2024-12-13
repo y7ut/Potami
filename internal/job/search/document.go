@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+const (
+	DepthMode = "depth"
+	FlatMode  = "flat"
+)
+
 // Document 文档
 type Document struct {
 	Content     string    `json:"content"`
@@ -15,7 +20,7 @@ type Document struct {
 }
 
 // DocumentsOutputParse 格式化并压缩输出
-func DocumentsCompress(documents []Document, size int, depthMode bool) string {
+func DocumentsCompress(documents []Document, size int, mode string) string {
 	ducumentDict := make(map[string]int)
 	length := 0
 	for _, doc := range documents {
@@ -28,7 +33,7 @@ func DocumentsCompress(documents []Document, size int, depthMode bool) string {
 	}
 
 	var resultBuilder strings.Builder
-	if depthMode {
+	if mode == "depth" {
 		for doc := range ducumentDict {
 			var breakdown bool
 			if resultBuilder.Len() > size {

@@ -30,6 +30,5 @@ func Initialized() {
 	)
 	InitStreams()
 	InitStreamFactory()
-	StartCrontab()
 	logrus.Info("op initialized")
 }

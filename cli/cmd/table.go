@@ -82,16 +82,14 @@ func getStringWidth(s string) int {
 }
 
 func editStringSlim(s string, w int) string {
-	w = w - 4
+	w = w - 3
 	if getStringWidth(s) < w {
 		return s
 	}
-	for i := len(s) - 1; i >= 0; i-- {
-		if getStringWidth(s[:i]) < w {
-			if i%3 != 0 {
-				i = i - (i % 3)
-			}
-			return s[:i] + "... "
+	runes := []rune(s) 
+	for i := len(runes) - 1; i >= 0; i-- {
+		if getStringWidth(string(runes[:i])) < w {
+			return string(runes[:i]) + "... "
 		}
 	}
 	return s

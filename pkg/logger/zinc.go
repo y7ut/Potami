@@ -2,8 +2,6 @@ package logger
 
 import (
 	"encoding/json"
-	"fmt"
-	"regexp"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -12,6 +10,7 @@ import (
 
 const defaultURI = "/es/_bulk"
 
+// zincLogData
 type zincLogData struct {
 	Time    time.Time     `json:"time"`
 	Level   logrus.Level  `json:"level"`
@@ -19,10 +18,12 @@ type zincLogData struct {
 	Data    logrus.Fields `json:"data"`
 }
 
+// zincLogIndex
 type zincLogIndex struct {
 	Index map[string]string `json:"index"`
 }
 
+// zincLogHook
 type zincLogHook struct {
 	host     string
 	index    string
@@ -30,6 +31,8 @@ type zincLogHook struct {
 	password string
 }
 
+// Fire Implements logrus.Hook
+// TODO: Async use channel push log
 func (h *zincLogHook) Fire(entry *logrus.Entry) error {
 	index := &zincLogIndex{
 		Index: map[string]string{
@@ -54,29 +57,23 @@ func (h *zincLogHook) Fire(entry *logrus.Entry) error {
 		SetBasicAuth(h.user, h.password).
 		SetBody(logStr).
 		Post(url); err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
 
 	return nil
 }
 
+// Levels 需要覆盖的日志级别
 func (h *zincLogHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
-func NewZincLogHook(zincUrl string, index string) (*zincLogHook, error) {
-	// zine_url like `zinc://user:password@127.0.0.1:4080`
-	regex := `zinc://([^:]+):([^@]+)@([a-z0-9\\._-]+):([0-9]+)`
-	re := regexp.MustCompile(regex)
-	result := re.FindStringSubmatch(zincUrl)
-	if len(result) == 5 {
-		return &zincLogHook{
-			host:     fmt.Sprintf("http://%s:%s", result[3], result[4]),
-			index:    index,
-			user:     result[1],
-			password: result[2],
-		}, nil
+// NewZincLogHook 创建Zinc日志Hook
+func NewZincLogHook(address, user, password, index string) *zincLogHook {
+	return &zincLogHook{
+		host:     address,
+		index:    index,
+		user:     user,
+		password: password,
 	}
-	return nil, fmt.Errorf("zinc url error")
-
 }

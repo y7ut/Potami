@@ -16,15 +16,14 @@ func InitGlobalLogger() {
 		FullTimestamp:   true,
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
+	
 	if conf.Log.Path != "" {
 		logrus.SetFormatter(&logrus.JSONFormatter{})
 		logrus.SetOutput(logger.GenerateRotateLog(conf.Log.Path, conf.Log.Name))
 	}
-	if conf.Log.ZineURL != "" {
-		zincHook, err := logger.NewZincLogHook(conf.Log.ZineURL, conf.Log.ZineIndex)
-		if err != nil {
-			panic(err)
-		}
+
+	if conf.Log.ZineIndex != "" && conf.ZincConf.Address != "" {
+		zincHook := logger.NewZincLogHook(conf.ZincConf.Address, conf.ZincConf.User, conf.ZincConf.Pass, conf.Log.ZineIndex)
 		logrus.AddHook(zincHook)
 	}
 }

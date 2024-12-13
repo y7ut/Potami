@@ -14,6 +14,8 @@ const ConfigType = "yaml"
 var (
 	// Log 日志配置配置
 	Log logConf
+	// Zinc zinc 配置
+	ZincConf zincConf
 	// Redis redis 配置
 	RedisConf redisConf
 	// Task 任务队列配置
@@ -54,6 +56,7 @@ func InitConfig() {
 
 	configs := map[string]any{
 		"log":                  &Log,
+		"zinc":                 &ZincConf,
 		"task":                 &Task,
 		"pool":                 &GoroutinePool,
 		"http":                 &HttpServer,

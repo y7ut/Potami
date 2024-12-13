@@ -3,8 +3,11 @@ log:
   path: ""
   name: "potami"
   level: "info"
-  zinc_url: ""
   zinc_index: ""
+
+zinc:
+  address: ""
+  data_index: ""
 
 redis:
   address: "potami-redis"

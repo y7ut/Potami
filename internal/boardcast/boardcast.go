@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	Heartbeat      = 5 // 实际心跳包发送间隔时间
+	Heartbeat      = 10 // 实际心跳包发送间隔时间
 	HeartbeatEvent = "heartbeat"
 	FinishEvent    = "finished"
 	StartEvent     = "start"

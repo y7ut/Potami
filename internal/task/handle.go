@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/y7ut/ppool"
 )
@@ -31,15 +32,18 @@ func excute(ctx context.Context, stream *Task, wp *ppool.Pool[*Task]) {
 	}
 
 	go func() {
+		j.SetTraceID(uuid.New().String())
+		j.TimeWatch()
 		currentResult := j.Handle(ctx)
 		resultChannel <- currentResult
+		j.TimeWatch()
 	}()
 
 	// 等待结果，或超时（wp.timeout）
 	select {
 	case err := <-resultChannel:
 		if err != nil {
-
+			j.SetError(err)
 			// 记录错误爆发
 			if !stream.BreakOutWithError(err) {
 				logrus.WithField("task_id", stream.ID).Error(fmt.Sprintf("Worker[%s] failed too many time", stream.Call))

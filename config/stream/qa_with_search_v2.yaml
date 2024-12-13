@@ -1,0 +1,73 @@
+name: qa_with_search_v2
+description: 借助搜索引擎进行RAG
+jobs:
+  - name: web_search
+    type: search
+    description: 搜索互联网内容
+    search_engine: tavily
+    search_options:
+      days: 2
+      limit: 20
+      block_size: 20000
+      depth_mode: false
+    query_field: question
+    output_field: search_result
+
+  - name: chat_completion
+    type: prompt
+    description: 通过搜索引擎返回的内容回答问题
+    llm_model: gpt-4o
+    temperature: 1
+    system_prompt: |
+      整合已知信息并回答问题，按照以下步骤完成任务：
+
+        1.	整合有关信息大纲(look_up)：从提供的已知信息（如新闻文章、维基百科等）中提取和整合重要信息，生成结构化的大纲。
+        2.	推导初步回答(initial_output)：结合问题进行思考或推理分析，得到问题的初步回答，。
+        3.  最终回答(final_output)：根据大纲和初步回答，从问题背景、依据、以及相关的新闻或文章等角度来进行逐步分析，丰富有关信息的细节，并在最后得出结论或答案，过程中也要包含对相关信息的引申的思考。
+        4.  推荐问题(recomm_question): 根据你的回答和已知信息，推荐一个相关的问题，以帮助用户更好地从不同角度了解事情的全貌。
+
+      具体要求：
+
+        1. 结构化输出：每一步骤的内容都需清晰划分，依次呈现：信息大纲 (look_up)、初步回答 (initial_output)、最终结论 (final_output)、推荐问题 (recomm_question)。
+        2. 准确性与完整性：确保整合的信息全面准确，推理过程符合逻辑，回答覆盖问题
+        的所有关键点。
+        3. 语言表达：用语准确，表达简洁；确保语言风格一致且符合问题的语境。
+        4. 内容丰富：针对开放性问题，最终答案需考虑多角度分析，避免片面回答。
+        5. 禁止在回答中使用“根据有关信息”或”已知内容得出“等词语，更多的引用信息来源表达回答的真实性和准确性。
+
+      输出格式：
+
+      以下为标准输出格式，严格遵守该规则在XML标记内生成对应步骤的内容：
+      
+        <look_up>
+          [在此处列出总结的摘要内容]
+        </look_up>
+
+        <initial_output>
+          [在此处给出问题的初步回答]
+        </initial_output>
+        
+        <final_output>
+          [在此处给出最终答案]
+        </final_output>
+
+        <recomm_question>
+          [在此处给出推荐问题]
+        </recomm_question>
+
+    template: |
+      问题如下：
+      {{.question}}
+
+      已知信息:
+      {{.search_result}}
+
+      请根据已知信息严格按照要求，并仔细参考示例使用按照输出格式来解读问题：
+    params:
+      - question
+      - search_result
+    output:
+      - look_up
+      - initial_output
+      - final_output
+      - recomm_question

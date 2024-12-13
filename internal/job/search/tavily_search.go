@@ -86,11 +86,10 @@ func newTavilySearch(apiKey string, days int, debug bool, includeDomain []string
 }
 
 // Search
-func (t *TavilySearch) Search(ctx context.Context, query string, options ...SearchEngineOption) ([]Document, error) {
-	if err := t.applyOptions(options...); err != nil {
+func (t *TavilySearch) Search(ctx context.Context, param *SearchParam) ([]Document, error) {
+	if err := t.applyParams(param); err != nil {
 		return nil, err
 	}
-	t.Query = query
 
 	var body io.Reader
 	reqbody, err := json.Marshal(t)
@@ -136,32 +135,29 @@ func (t *TavilySearch) Search(ctx context.Context, query string, options ...Sear
 	return t.formatResults(tsResponse), nil
 }
 
-func (t *TavilySearch) applyOptions(options ...SearchEngineOption) error {
-	om := DefaultOptionsManager()
-	for _, applyOption := range options {
-		applyOption(om)
+// applyParams
+func (t *TavilySearch) applyParams(param *SearchParam) error {
+
+	if param.Debug {
+		t.Debug = param.Debug
 	}
 
-	if om.Debug {
-		t.Debug = om.Debug
-	}
+	t.MaxResults = param.Limit
+	t.Query = param.Query
 
-	t.MaxResults = om.Limit
-
-	t.Topic = om.Get("topic", TopicGeneral).(string)
-
+	t.Topic = param.Topic
 	if t.Topic != TopicGeneral && t.Topic != TopicNews {
-		return fmt.Errorf("tavily topic error: %s", t.Topic)
+		return fmt.Errorf("tavily topic error: %s is not a valid topic", t.Topic)
 	}
 
-	t.SearchDepth = om.Get("search_depth", DepthBasic).(string)
+	t.SearchDepth = param.SearchDepth
 	if t.SearchDepth != DepthBasic && t.SearchDepth != DepthAdvanced {
-		return fmt.Errorf("tavily search depth error: %s", t.SearchDepth)
+		return fmt.Errorf("tavily search depth error: %s is not a valid search depth", t.SearchDepth)
 	}
 
-	t.Days = om.Get("days", 7).(int)
+	t.Days = param.Days
 	if t.Days < 1 || t.Days > 30 {
-		return fmt.Errorf("tavily days error: %d", t.Days)
+		return fmt.Errorf("tavily days error: %d is not a valid days, days must between 1 and 30", t.Days)
 	}
 
 	return nil
@@ -195,58 +191,4 @@ func (t *TavilySearch) formatResults(response TavilySearchResponse) []Document {
 	}
 
 	return documents
-}
-
-// DocumentsOutputParse 格式化输出
-func DocumentsOutputParse(documents []Document, size int, depthMode bool) string {
-	ducumentDict := make(map[string]int)
-	length := 0
-	for _, doc := range documents {
-		content := fmt.Sprintf("%s\n%s\n", doc.Title, doc.Content)
-		if !doc.PublishedAt.IsZero() {
-			content = fmt.Sprintf("%s\n%s %s\n", doc.Title, doc.PublishedAt.Format("2006年 01月 02日："), doc.Content)
-		}
-		ducumentDict[content] = len(content)
-		length += len(content)
-	}
-
-	var resultBuilder strings.Builder
-	if depthMode {
-		for doc := range ducumentDict {
-			var breakdown bool
-			if resultBuilder.Len() > size {
-				doc = SubstringByRune(doc, 0, resultBuilder.Len()-size)
-				breakdown = true
-			}
-			doc = fmt.Sprintf("%s\n", doc)
-			resultBuilder.WriteString(doc)
-			if breakdown {
-				resultBuilder.WriteString("...")
-				break
-			}
-		}
-	} else {
-		for doc := range ducumentDict {
-			doc = SubstringByRune(doc, 0, size/len(documents))
-			doc = fmt.Sprintf("%s\n", doc)
-			resultBuilder.WriteString(doc)
-		}
-	}
-
-	return resultBuilder.String()
-}
-
-// SubstringByRune 按字符获取字符串的部分段落
-func SubstringByRune(s string, start, length int) string {
-	runes := []rune(s) // 将字符串转换为字符切片
-	if start < 0 || start >= len(runes) {
-		return "" // 起始位置无效，返回空字符串
-	}
-
-	end := start + length
-	if end > len(runes) {
-		end = len(runes) // 如果超出范围，取最大长度
-	}
-
-	return string(runes[start:end]) // 截取并转换回字符串
 }

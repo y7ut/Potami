@@ -65,15 +65,23 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 				if job.Type == "prompt" {
 
 					promptJob := &llm.Dialog{
-						Intput:      job.Params,
-						Output:      job.Output,
-						Model:       job.LlmModel,
-						System:      job.SystemPrompt,
-						Temperature: job.Temperature,
-						Template:    job.Template,
-						TopP:        job.TopP,
+						Intput:   job.Params,
+						Output:   job.Output,
+						System:   job.SystemPrompt,
+						Template: job.Template,
 					}
 					promptJob.SetName(job.Description)
+
+					if job.LlmModel != "" {
+						promptJob.SetOption("model", job.LlmModel)
+					}
+					if job.Temperature != 0 {
+						promptJob.SetOption("temperature", job.Temperature)
+					}
+					if job.TopP != 0 {
+						promptJob.SetOption("top_p", job.TopP)
+					}
+
 					jobs = append(jobs, promptJob)
 
 				}
@@ -94,63 +102,51 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 					if !ok {
 						engineInit = searchEngines["tavily"]
 					}
-					searchOptions := make([]search.SearchEngineOption, 0)
-					if _, ok := job.SearchOptions["limit"]; ok {
-						limit, ok := job.SearchOptions["limit"].(int)
-						if !ok {
-							limit = int(job.SearchOptions["limit"].(float64))
-						}
-						searchOptions = append(searchOptions, search.WithLimit(limit))
-					}
-
-					if _, ok := job.SearchOptions["debug"]; ok {
-						if debug, ok := job.SearchOptions["debug"].(bool); ok {
-							searchOptions = append(searchOptions, search.WithDebug(debug))
-						}
-					}
-
-					if _, ok := job.SearchOptions["topic"]; ok {
-						if topic, ok := job.SearchOptions["topic"].(string); ok {
-							searchOptions = append(searchOptions, search.WithOption("topic", topic))
-						}
-					}
-
-					if _, ok := job.SearchOptions["search_depth"]; ok {
-						if searchDepth, ok := job.SearchOptions["search_depth"].(string); ok {
-							searchOptions = append(searchOptions, search.WithOption("search_depth", searchDepth))
-						}
-					}
-
-					if _, ok := job.SearchOptions["days"]; ok {
-						days, ok := job.SearchOptions["days"].(int)
-						if !ok {
-							days = int(job.SearchOptions["days"].(float64))
-						}
-						searchOptions = append(searchOptions, search.WithOption("days", days))
-					}
-
-					depthMode := false
-					if _, ok := job.SearchOptions["depth_mode"]; ok {
-						depthMode = job.SearchOptions["depth_mode"].(bool)
-					}
-
-					blockSize := 3000
-					if _, ok := job.SearchOptions["block_size"]; ok {
-						blockSize, ok = job.SearchOptions["block_size"].(int)
-						if !ok {
-							blockSize = int(job.SearchOptions["block_size"].(float64))
-						}
-					}
 
 					searchJob := &search.SearchService{
 						Engine:      engineInit(),
-						Options:     searchOptions,
-						DepthMode:   depthMode,
-						BlockSize:   blockSize,
 						QueryField:  job.QueryField,
 						OutputField: job.OutputField,
 					}
+
+					if limit, ok := job.SearchOptions["limit"]; ok {
+						searchJob.SetOption("limit", limit)
+					}
+
+					if debug, ok := job.SearchOptions["debug"]; ok {
+						searchJob.SetOption("debug", debug)
+					}
+
+					if topic, ok := job.SearchOptions["topic"]; ok {
+						searchJob.SetOption("topic", topic)
+					}
+
+					if days, ok := job.SearchOptions["days"]; ok {
+						searchJob.SetOption("days", days)
+					}
+
+					if days, ok := job.SearchOptions["search_depth"]; ok {
+						searchJob.SetOption("search_depth", days)
+					}
+
+					if depthMode, ok := job.SearchOptions["depth_mode"]; ok {
+						mode := search.DepthMode
+						if IsDepth, ok := depthMode.(bool); ok && IsDepth {
+							mode = search.FlatMode
+						}
+						// depth_mode: 1. 深度 Depth 2. 广度 Flat
+						searchJob.SetOption("depth_mode", mode)
+					}
+
+					if block_size, ok := job.SearchOptions["block_size"]; ok {
+						searchJob.SetOption("block_size", block_size)
+					}
+
 					searchJob.SetName(job.Description)
+
+					// for optionName, optionValue := range searchJob.GetOptions() {
+					// 	fmt.Printf("optionName: %s, optionValue: %v\n", optionName, optionValue)
+					// }
 					jobs = append(jobs, searchJob)
 				}
 			}

@@ -22,7 +22,6 @@ func StreamInfo(c *gin.Context) {
 		return
 	}
 	accept := c.Request.Header.Get("Accept")
-	fmt.Println(accept)
 
 	if accept == "application/x-yaml" || accept == "text/yaml" {
 		c.YAML(http.StatusOK, stream)
