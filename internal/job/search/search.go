@@ -18,8 +18,15 @@ type SearchService struct {
 	OutputField string
 }
 
-func (ss *SearchService) Handle(ctx context.Context) error {
-
+func (ss *SearchService) Handle(ctx context.Context) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("dialog panic: %v", err)
+		}
+		if err != nil {
+			ss.SetError(err)
+		}
+	}()
 	p, err := perpareParam(ss)
 	if err != nil {
 		ss.Logger().WithError(err).Error("search error")

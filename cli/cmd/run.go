@@ -35,7 +35,8 @@ var (
 	// IDPrefix  data event 生成数据的事件的字节前缀
 	IDPrefix = []byte("id: ")
 
-	completeParams = make(map[string]string)
+	completeParams  = make(map[string]string)
+	completeOptions = make(map[string]string)
 )
 
 // switchEventType 用于判断事件数据行的类型
@@ -95,10 +96,25 @@ var CompleteCommand = &cobra.Command{
 			}
 		}
 
+		options := make(map[string]map[string]interface{})
+		if completeOptions != nil {
+			for optionName, v := range completeOptions {
+				optionKey := strings.Split(optionName, ".")
+				if len(optionKey) != 2 {
+					continue
+				}
+				if options[optionKey[0]] == nil {
+					options[optionKey[0]] = make(map[string]interface{})
+				}
+				options[optionKey[0]][optionKey[1]] = v
+			}
+		}
+
 		CompletionTask := &api.StreamTask{
-			Params: params,
-			Name:   streamsName + time.Now().Format("_2006-01-02 15:04:05"),
-			Mode:   "stream",
+			Params:  params,
+			Name:    streamsName + time.Now().Format("_2006-01-02 15:04:05"),
+			Mode:    "stream",
+			Options: options,
 		}
 
 		resp, err := client.SetDisableWarn(true).R().
@@ -125,6 +141,7 @@ var CompleteCommand = &cobra.Command{
 func init() {
 	CompleteCommand.Flags().StringP("context", "c", "", "the context used")
 	CompleteCommand.Flags().StringToStringVarP(&completeParams, "params", "p", nil, "-s k1=v1 -s k2=v2")
+	CompleteCommand.Flags().StringToStringVarP(&completeOptions, "options", "o", nil, "-o job1.model=v1 -o job2.model=v2")
 	StreamCommand.AddCommand(CompleteCommand)
 }
 
@@ -141,7 +158,7 @@ func completionTaskOutputParses(resp *http.Response) {
 
 	finish := false
 	taskID := ""
-	traceStates := make(map[string]bool, 0)
+	traceCompleteStates := make(map[string]bool, 0)
 	MetaData := make(map[string]string, 0)
 	displayTrace := func(traceRecords []*task.TraceRecord) []*task.TraceRecord {
 		retrys := make([]*task.TraceRecord, 0)
@@ -149,15 +166,22 @@ func completionTaskOutputParses(resp *http.Response) {
 			if traceRecord == nil {
 				continue
 			}
-			if _, ok := traceStates[traceRecord.TraceID]; ok {
+			if _, ok := traceCompleteStates[traceRecord.TraceID]; ok {
 				continue
 			}
 			if traceRecord.FinishAt != "" || traceRecord.Error != "" {
-				fmt.Printf("Trace: %s\n", traceRecord.TraceID)
+				if traceRecord.ParentID != "" {
+					if _, ok := traceCompleteStates[traceRecord.ParentID]; !ok {
+						continue
+					}
+					fmt.Printf("Trace: %s (Retry Trace: %s)\n", traceRecord.TraceID, traceRecord.ParentID)
+				} else {
+					fmt.Printf("Trace: %s\n", traceRecord.TraceID)
+				}
+
 				fmt.Printf("Name: %s\n", traceRecord.Name)
 				fmt.Printf("Duration: %d ms\n", traceRecord.Duration)
 				fmt.Printf("Bill: $%f\n", traceRecord.Bill)
-
 				fmt.Printf("Options:")
 				for k, v := range traceRecord.Options {
 					fmt.Printf(" %s: %v ", k, v)
@@ -180,10 +204,7 @@ func completionTaskOutputParses(resp *http.Response) {
 				if traceRecord.Error != "" {
 					fmt.Printf(" - Error: \n %s\n", traceRecord.Error)
 					fmt.Println(strings.Repeat("-", TableBoxWidth*2) + "\n")
-					traceStates[traceRecord.TraceID] = true
-					if traceRecord.Retrys != nil {
-						retrys = append(retrys, traceRecord.Retrys...)
-					}
+					traceCompleteStates[traceRecord.TraceID] = true
 					continue
 				}
 				fmt.Println(" - Outputs:")
@@ -197,7 +218,7 @@ func completionTaskOutputParses(resp *http.Response) {
 					}
 				}
 				fmt.Println(strings.Repeat("-", TableBoxWidth*2) + "\n")
-				traceStates[traceRecord.TraceID] = true
+				traceCompleteStates[traceRecord.TraceID] = true
 			}
 		}
 		return retrys

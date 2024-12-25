@@ -33,7 +33,16 @@ type Dialog struct {
 	Output []string
 }
 
-func (d *Dialog) Handle(ctx context.Context) error {
+func (d *Dialog) Handle(ctx context.Context) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("dialog panic: %v", err)
+		}
+		if err != nil {
+			d.SetError(err)
+		}
+	}()
+
 	client := openai.NewClient(conf.GetOpenAIOptions()...)
 
 	param, err := d.buildRequestParam()

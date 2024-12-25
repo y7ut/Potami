@@ -70,7 +70,8 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 						System:   job.SystemPrompt,
 						Template: job.Template,
 					}
-					promptJob.SetName(job.Description)
+					promptJob.SetName(job.Name)
+					promptJob.SetDescription(job.Description)
 
 					if job.LlmModel != "" {
 						promptJob.SetOption("model", job.LlmModel)
@@ -93,7 +94,8 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 						Params:       job.Params,
 						OutputParses: job.OutputParses,
 					}
-					toolJob.SetName(job.Description)
+					toolJob.SetName(job.Name)
+					toolJob.SetDescription(job.Description)
 					jobs = append(jobs, toolJob)
 				}
 
@@ -142,7 +144,8 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 						searchJob.SetOption("block_size", block_size)
 					}
 
-					searchJob.SetName(job.Description)
+					searchJob.SetName(job.Name)
+					searchJob.SetDescription(job.Description)
 
 					// for optionName, optionValue := range searchJob.GetOptions() {
 					// 	fmt.Printf("optionName: %s, optionValue: %v\n", optionName, optionValue)

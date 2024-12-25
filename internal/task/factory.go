@@ -58,12 +58,13 @@ func (f *StreamTaskFactory) createStreamTask(call string, level int, jobs []Job,
 		done:                     make(chan struct{}),
 		CreatedAt:                time.Now(),
 		DstWorkPool:              f.dstPool,
+		JobsIndex:                make(map[string]*list.Element),
 	}
 
 	jobslist := list.New()
 	for _, j := range jobs {
 		j.SetTask(stream)
-		jobslist.PushBack(j)
+		stream.JobsIndex[j.GetName()] = jobslist.PushBack(j)
 	}
 
 	stream.JobsPipline = jobslist

@@ -12,10 +12,11 @@ import (
 )
 
 type StreamTask struct {
-	Name     string                 `json:"name,omitempty"`
-	Params   map[string]interface{} `json:"params"`
-	Callback *task.CallBackConfig   `json:"callback"`
-	Mode     string                 `json:"mode,omitempty" validate:"oneof=sync async stream"`
+	Name     string                    `json:"name,omitempty"`
+	Params   map[string]any            `json:"params"`
+	Options  map[string]map[string]any `json:"options,omitempty"`
+	Callback *task.CallBackConfig      `json:"callback,omitempty"`
+	Mode     string                    `json:"mode,omitempty" validate:"oneof=sync async stream"`
 }
 
 func CompleteStream(c *gin.Context) {
@@ -47,7 +48,14 @@ func CompleteStream(c *gin.Context) {
 	}
 
 	currentTask, err := createTask(StreamName, streamTaskReq.Name, streamTaskReq.Params, streamTaskReq.Callback)
-
+	for jobName, options := range streamTaskReq.Options {
+		if j, ok := currentTask.JobsIndex[jobName]; ok {
+			for key, value := range options {
+				j.Value.(task.Job).SetOption(key, value)
+			}
+		}
+	}
+	
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

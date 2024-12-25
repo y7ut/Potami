@@ -8,7 +8,6 @@ import (
 
 // MarshalJSON 任务信息
 func (task *Task) MarshalJSON() ([]byte, error) {
-
 	taskInfo := make(map[string]interface{})
 	taskInfo["uuid"] = task.ID
 	taskInfo["name"] = task.Call

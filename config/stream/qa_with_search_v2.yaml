@@ -1,5 +1,5 @@
 name: qa_with_search_v2
-description: 借助搜索引擎进行RAG
+description: 通过互联网搜索得到问题的高时效性最佳回答
 jobs:
   - name: web_search
     type: search

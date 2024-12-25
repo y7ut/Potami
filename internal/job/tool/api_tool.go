@@ -22,7 +22,16 @@ type APITool struct {
 	OutputParses map[string]string
 }
 
-func (t *APITool) Handle(ctx context.Context) error {
+func (t *APITool) Handle(ctx context.Context) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("dialog panic: %v", err)
+		}
+		if err != nil {
+			t.SetError(err)
+		}
+	}()
+
 	result, err := t.call(ctx)
 	if err != nil {
 		t.Logger().WithFields(t.GetAttributes()).WithError(err).Error("tool[api] error")

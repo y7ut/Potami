@@ -72,6 +72,12 @@ type WithName interface {
 	SetName(string)
 }
 
+// WithDescription 可描述的
+type WithDescription interface {
+	GetDescription() string
+	SetDescription(string)
+}
+
 // WithTask 可携带Task
 type WithTask interface {
 	GetTask() *Task
@@ -84,6 +90,7 @@ type Job interface {
 	Handle(context.Context) error
 	WithTask
 	WithName
+	WithDescription
 	WithOption
 	Tracer
 }
@@ -92,6 +99,7 @@ type Job interface {
 type JobHelper struct {
 	traces           []string
 	name             string
+	description      string
 	InputAttributes  map[string]map[string]bool
 	OutputAttributes map[string]map[string]bool
 	startAts         map[string]time.Time
@@ -123,6 +131,14 @@ func (j *JobHelper) SetName(name string) {
 
 func (j *JobHelper) GetName() string {
 	return j.name
+}
+
+func (j *JobHelper) SetDescription(description string) {
+	j.description = description
+}
+
+func (j *JobHelper) GetDescription() string {
+	return j.description
 }
 
 func (j *JobHelper) GetTask() *Task {
@@ -320,7 +336,8 @@ func (j *JobHelper) SetError(err error) {
 	if j.Errors == nil {
 		j.Errors = make(map[string]string, 0)
 	}
-	j.Errors[j.GetCurrentTraceID()] = err.Error()
+	traceID := j.GetCurrentTraceID()
+	j.Errors[traceID] = err.Error()
 }
 
 func (j *JobHelper) GetErrors() map[string]string {
@@ -331,7 +348,7 @@ func (j *JobHelper) GetError(traceId string) (string, error) {
 	if j.Errors == nil {
 		return "", nil
 	}
-	err, ok := j.Errors[traceId]
+	err, ok := j.GetErrors()[traceId]
 	if !ok {
 		return "", fmt.Errorf("trace %s not found", traceId)
 	}
