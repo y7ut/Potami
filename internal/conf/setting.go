@@ -32,6 +32,8 @@ var (
 	Tavily tavily
 	// GoogleCustomSearch google custom search 配置
 	GoogleCustomSearch googleCustomSearch
+	// Ollama ollama 配置
+	Ollama ollama
 )
 
 func InitConfig() {
@@ -65,6 +67,7 @@ func InitConfig() {
 		"redis":                &RedisConf,
 		"tavily":               &Tavily,
 		"google_custom_search": &GoogleCustomSearch,
+		"ollama":               &Ollama,
 	}
 
 	for k, v := range configs {

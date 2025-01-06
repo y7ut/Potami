@@ -2,6 +2,7 @@ package logger
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -32,7 +33,7 @@ type zincLogHook struct {
 }
 
 // Fire Implements logrus.Hook
-// TODO: Async use channel push log
+// TODO: Async use channel push log bulk
 func (h *zincLogHook) Fire(entry *logrus.Entry) error {
 	index := &zincLogIndex{
 		Index: map[string]string{
@@ -47,6 +48,13 @@ func (h *zincLogHook) Fire(entry *logrus.Entry) error {
 		Message: entry.Message,
 		Data:    entry.Data,
 	}
+
+	if entry.Level == logrus.ErrorLevel {
+		if ErrorMessage, ok := entry.Data["error"]; ok {
+			entry.Data["error"] = fmt.Sprintf("%v", ErrorMessage)
+		}
+	}
+
 	dataBytes, _ := json.Marshal(data)
 
 	logStr := string(indexBytes) + "\n" + string(dataBytes) + "\n"

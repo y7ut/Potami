@@ -1,4 +1,4 @@
-name: qa_with_search_v2
+name: qa_with_search_llama3
 description: 通过互联网搜索得到问题的高时效性最佳回答
 jobs:
   - name: web_search
@@ -6,16 +6,17 @@ jobs:
     description: 搜索互联网内容
     search_engine: tavily
     search_options:
-      limit: 10
-      block_size: 20000
+      limit: 3
+      block_size: 8000
     query_field: question
     output_field: search_result
 
   - name: chat_completion
     type: prompt
     description: 通过搜索引擎返回的内容回答问题
-    llm_provider: openai
-    llm_model: gpt-4o
+    llm_provider: ollama
+    llm_model: llama3.1:latest
+    max_tokens: 4096
     temperature: 1
     system_prompt: |
       整合已知信息并回答问题，按照以下步骤完成任务：
@@ -23,11 +24,10 @@ jobs:
         1.	整合有关信息大纲(look_up)：
         从提供的已知信息（如新闻文章、维基百科等）中提取和整合重要信息，生成结构化的大纲。
         2.	推导初步回答(initial_output)：
-        结合问题进行思考并进行逐步的推理分析，要求体现出推理的过程，在最后得到问题的初步回答，。
+        根据已知信息的大纲从问题背景、依据、以及相关的新闻或文章等多个角度来进行综合分析，列出分析的过程和结果。
         3.  最终回答(final_output)：
-        根据已知信息的大纲和初步回答的推理过程，从问题背景、依据、以及相关的新闻或文章等角度来整理。
-        你需要整理出一篇内容丰富的最终回答，并从客观的角度来继续引申出相关信息的额外的思考，
-        注意：这一部分的内容，要有清晰的段落结构，有利于阅读，和更好的表达。
+        根据整合的摘要和推导出的初步回答合并，整理出一篇内容丰富的最终答案，并从客观的角度来继续引申出对相关信息的额外思考。
+        注意：这一部分的内容，要有清晰的段落结构，有利于阅读和理解，同时也要有逻辑的连贯性。
         4.  推荐问题(recomm_question): 
         根据你的回答和已知信息，推荐一个相关的问题，以帮助用户更好地从不同角度了解事情的全貌。
 

@@ -12,9 +12,9 @@ import (
 )
 
 const createJob = `-- name: CreateJob :one
-INSERT INTO jobs (stream_id, sorted, name, type, description, llm_model, system_prompt, max_tokens, top_p, temperature, template, method, endpoint, params, output, output_parses, search_engine, search_options, query_field, output_field)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field
+INSERT INTO jobs (stream_id, sorted, name, type, description, llm_model, system_prompt, max_tokens, top_p, temperature, template, method, endpoint, params, output, output_parses, search_engine, search_options, query_field, output_field, llm_provider)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field, llm_provider
 `
 
 type CreateJobParams struct {
@@ -38,6 +38,7 @@ type CreateJobParams struct {
 	SearchOptions sql.NullString  `json:"search_options"`
 	QueryField    sql.NullString  `json:"query_field"`
 	OutputField   sql.NullString  `json:"output_field"`
+	LlmProvider   sql.NullString  `json:"llm_provider"`
 }
 
 func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (*Job, error) {
@@ -62,6 +63,7 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (*Job, err
 		arg.SearchOptions,
 		arg.QueryField,
 		arg.OutputField,
+		arg.LlmProvider,
 	)
 	var i Job
 	err := row.Scan(
@@ -87,6 +89,7 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (*Job, err
 		&i.SearchOptions,
 		&i.QueryField,
 		&i.OutputField,
+		&i.LlmProvider,
 	)
 	return &i, err
 }
@@ -129,7 +132,7 @@ func (q *Queries) DeleteJobsByStreamID(ctx context.Context, streamID int64) erro
 }
 
 const getJobByID = `-- name: GetJobByID :one
-SELECT id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field FROM jobs WHERE id = ?
+SELECT id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field, llm_provider FROM jobs WHERE id = ?
 `
 
 func (q *Queries) GetJobByID(ctx context.Context, id int64) (*Job, error) {
@@ -158,12 +161,13 @@ func (q *Queries) GetJobByID(ctx context.Context, id int64) (*Job, error) {
 		&i.SearchOptions,
 		&i.QueryField,
 		&i.OutputField,
+		&i.LlmProvider,
 	)
 	return &i, err
 }
 
 const listJobs = `-- name: ListJobs :many
-SELECT id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field FROM jobs
+SELECT id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field, llm_provider FROM jobs
 `
 
 func (q *Queries) ListJobs(ctx context.Context) ([]*Job, error) {
@@ -198,6 +202,7 @@ func (q *Queries) ListJobs(ctx context.Context) ([]*Job, error) {
 			&i.SearchOptions,
 			&i.QueryField,
 			&i.OutputField,
+			&i.LlmProvider,
 		); err != nil {
 			return nil, err
 		}
@@ -213,7 +218,7 @@ func (q *Queries) ListJobs(ctx context.Context) ([]*Job, error) {
 }
 
 const listJobsByStreamID = `-- name: ListJobsByStreamID :many
-SELECT id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field FROM jobs WHERE stream_id = ? ORDER BY sorted
+SELECT id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field, llm_provider FROM jobs WHERE stream_id = ? ORDER BY sorted
 `
 
 func (q *Queries) ListJobsByStreamID(ctx context.Context, streamID int64) ([]*Job, error) {
@@ -248,6 +253,7 @@ func (q *Queries) ListJobsByStreamID(ctx context.Context, streamID int64) ([]*Jo
 			&i.SearchOptions,
 			&i.QueryField,
 			&i.OutputField,
+			&i.LlmProvider,
 		); err != nil {
 			return nil, err
 		}
@@ -264,9 +270,9 @@ func (q *Queries) ListJobsByStreamID(ctx context.Context, streamID int64) ([]*Jo
 
 const updateJob = `-- name: UpdateJob :one
 UPDATE jobs
-SET name = ?, type = ?, sorted = ?, description = ?, llm_model = ?, system_prompt = ?, max_tokens = ?, top_p = ?, temperature = ?, template = ?, method = ?, endpoint = ?, params = ?, output = ?, output_parses = ?, search_engine = ?, search_options = ?, query_field = ?, output_field = ?
+SET name = ?, type = ?, sorted = ?, description = ?, llm_model = ?, system_prompt = ?, max_tokens = ?, top_p = ?, temperature = ?, template = ?, method = ?, endpoint = ?, params = ?, output = ?, output_parses = ?, search_engine = ?, search_options = ?, query_field = ?, output_field = ?, llm_provider = ?
 WHERE id = ?
-RETURNING id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field
+RETURNING id, stream_id, sorted, name, type, description, llm_model, temperature, top_p, max_tokens, template, system_prompt, method, endpoint, params, output, output_parses, created_at, search_engine, search_options, query_field, output_field, llm_provider
 `
 
 type UpdateJobParams struct {
@@ -289,6 +295,7 @@ type UpdateJobParams struct {
 	SearchOptions sql.NullString  `json:"search_options"`
 	QueryField    sql.NullString  `json:"query_field"`
 	OutputField   sql.NullString  `json:"output_field"`
+	LlmProvider   sql.NullString  `json:"llm_provider"`
 	ID            int64           `json:"id"`
 }
 
@@ -313,6 +320,7 @@ func (q *Queries) UpdateJob(ctx context.Context, arg UpdateJobParams) (*Job, err
 		arg.SearchOptions,
 		arg.QueryField,
 		arg.OutputField,
+		arg.LlmProvider,
 		arg.ID,
 	)
 	var i Job
@@ -339,6 +347,7 @@ func (q *Queries) UpdateJob(ctx context.Context, arg UpdateJobParams) (*Job, err
 		&i.SearchOptions,
 		&i.QueryField,
 		&i.OutputField,
+		&i.LlmProvider,
 	)
 	return &i, err
 }

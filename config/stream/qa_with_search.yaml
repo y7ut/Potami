@@ -17,6 +17,7 @@ jobs:
   - name: chat_completion
     type: prompt
     description: 通过搜索引擎返回的内容回答问题
+    llm_provider: openai
     llm_model: gpt-4o
     system_prompt: |
       整合已知信息并回答问题，按照以下步骤完成任务：

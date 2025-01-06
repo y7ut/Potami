@@ -17,10 +17,14 @@ type WebServer struct {
 	server *http.Server
 }
 
-func Initialized() {
+func Initialized(debug bool) {
 	// 禁用控制台颜色，将日志写入文件时不需要控制台颜色。
 	gin.DisableConsoleColor()
-	gin.SetMode(gin.ReleaseMode)
+	if debug {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	engine := newWebEngine()
 

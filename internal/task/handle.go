@@ -32,6 +32,8 @@ func excute(ctx context.Context, stream *Task, wp *ppool.Pool[*Task]) {
 	}
 
 	go func() {
+		defer close(resultChannel)
+
 		j.SetTraceID(uuid.New().String())
 		j.TimeWatch()
 		currentResult := j.Handle(ctx)

@@ -24,7 +24,6 @@ func (task *Task) MarshalJSON() ([]byte, error) {
 	taskInfo["complete_at"] = task.CompleteAt
 	taskInfo["close_at"] = task.CloseAt
 	taskInfo["meta_data"] = task.MetaData
-	taskInfo["option"] = task.Option
 	taskInfo["error_stacks"] = task.ErrorStacks
 	taskInfo["traces"] = GetTracesFromTask(task)
 	return json.Marshal(taskInfo)

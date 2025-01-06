@@ -2,6 +2,7 @@ package conf
 
 import (
 	"math/rand"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -62,13 +63,21 @@ type db struct {
 }
 
 type tavily struct {
-	Days    int      `mapstructure:"days"`
 	APIKey  string   `mapstructure:"api_key"`
 	APIKeys []string `mapstructure:"api_keys"`
 	Debug   bool     `mapstructure:"debug"`
 
 	IncludeDomains []string `mapstructure:"include_domains"`
 	ExcludeDomains []string `mapstructure:"exclude_domains"`
+}
+
+type ollama struct {
+	URL string `mapstructure:"url"`
+}
+
+func (o *ollama) GetURL() *url.URL {
+	u, _ := url.Parse(o.URL)
+	return u
 }
 
 func (t *tavily) GetKey() string {

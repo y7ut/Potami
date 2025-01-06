@@ -84,6 +84,7 @@ func initStreamsFromDB() map[string]*schema.Stream {
 			Description:   job.Description.String,
 			Params:        params,
 			LlmModel:      job.LlmModel.String,
+			LLMProvider:   job.LlmProvider.String,
 			Temperature:   job.Temperature.Float64,
 			TopP:          job.TopP.Float64,
 			MaxTokens:     int(job.MaxTokens.Int64),

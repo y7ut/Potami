@@ -1,15 +1,30 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 )
 
+type XMLOutPutParser struct {
+	Output []string
+}
+
+func NewXMLOutPutParser(output ...string) XMLOutPutParser {
+	return XMLOutPutParser{
+		Output: output,
+	}
+}
+
+func (p XMLOutPutParser) Parse(ctx context.Context, content string) (map[string]interface{}, error) {
+	return xmlOutPutParser(content, p.Output...)
+}
+
 const outputParseRegxTemplate = "(?s)<%s>(.*?)</%s>"
 
 // XMLOutPutParse 解析XML输出, parses 为空则解析全部, 默认属性名为output
-func XMLOutPutParser(content string, parses ...string) (map[string]interface{}, error) {
+func xmlOutPutParser(content string, parses ...string) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
 	if len(parses) == 0 {
 		values["output"] = content

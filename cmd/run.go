@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/y7ut/potami/api"
 	"github.com/y7ut/potami/internal/op"
@@ -20,13 +21,21 @@ var RunCmd = &cobra.Command{
 	},
 }
 
+var debugMode bool
+
 func init() {
 	RootCmd.AddCommand(RunCmd)
+
+	RunCmd.Flags().BoolVarP(&debugMode, "debug", "d", false, "debug mode")
 }
 
 func Run() {
 	op.Initialized()
 
+	if debugMode {
+		logrus.SetLevel(logrus.DebugLevel)
+		logrus.Debug("potami run in debug mode")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		cancel()
@@ -34,7 +43,7 @@ func Run() {
 	op.Dispatcher.Start(ctx)
 	// op.StartTaskKeeper(ctx)
 
-	server.Initialized()
+	server.Initialized(debugMode)
 	server.Route(api.RegisterRouter)
 	go server.Start()
 

@@ -82,6 +82,7 @@ func Apply(ctx context.Context, stream *schema.Stream) error {
 				Type:        job.Type,
 				Description: sql.NullString{String: job.Description, Valid: true},
 				LlmModel:    sql.NullString{String: job.LlmModel, Valid: true},
+				LlmProvider: sql.NullString{String: job.LLMProvider, Valid: true},
 				SystemPrompt: sql.NullString{
 					String: job.SystemPrompt,
 					Valid:  job.SystemPrompt != "",

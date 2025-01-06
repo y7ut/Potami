@@ -70,7 +70,6 @@ func (f *StreamTaskFactory) createStreamTask(call string, level int, jobs []Job,
 	stream.JobsPipline = jobslist
 	stream.CurrentStage = stream.JobsPipline.Front()
 	stream.MetaData = make(map[string]interface{})
-	stream.Option = make(map[string]interface{})
 	// task.UpdateCompletePercent()
 	logrus.WithField("task_id", stream.ID).Info(fmt.Sprintf("create stream: %s ", call))
 	return stream, nil

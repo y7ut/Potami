@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/y7ut/potami/internal/conf"
+	"github.com/y7ut/potami/internal/job/retrieval"
+	"github.com/y7ut/potami/internal/task"
+	"github.com/y7ut/potami/pkg/param"
 )
 
 const (
@@ -17,6 +20,7 @@ const (
 	TopicNews            = "news"
 	DepthBasic           = "basic"
 	DepthAdvanced        = "advanced"
+	DefaultDays          = 7
 	TavilySearchEndpoint = "https://api.tavily.com/search"
 )
 
@@ -38,6 +42,8 @@ type TavilySearch struct {
 
 	IncludeDomains []string `json:"include_domains"`
 	ExcludeDomains []string `json:"exclude_domains"`
+
+	options task.WithOption `json:"-"`
 }
 
 type TavilySearchImage struct {
@@ -63,17 +69,19 @@ type TavilySearchResponse struct {
 	ResponseTime      float64              `json:"response_time"`
 }
 
-func NewTavilySearch() *TavilySearch {
-	return newTavilySearch(conf.Tavily.GetKey(), conf.Tavily.Days, conf.Tavily.Debug, conf.Tavily.IncludeDomains, conf.Tavily.ExcludeDomains)
+func NewTavilySearch(options task.WithOption) *TavilySearch {
+	ts := newTavilySearch(conf.Tavily.GetKey(), conf.Tavily.Debug, conf.Tavily.IncludeDomains, conf.Tavily.ExcludeDomains)
+	ts.options = options
+	return ts
 }
 
 // NewTavilySearch
-func newTavilySearch(apiKey string, days int, debug bool, includeDomain []string, excludeDomain []string) *TavilySearch {
+func newTavilySearch(apiKey string, debug bool, includeDomain []string, excludeDomain []string) *TavilySearch {
 	return &TavilySearch{
 		MaxResults:        5,
 		ApiKey:            apiKey,
 		Topic:             TopicGeneral,
-		Days:              days,
+		Days:              DefaultDays,
 		SearchDepth:       DepthBasic,
 		IncludeImages:     false,
 		IncludeImageDesc:  false,
@@ -86,10 +94,11 @@ func newTavilySearch(apiKey string, days int, debug bool, includeDomain []string
 }
 
 // Search
-func (t *TavilySearch) Search(ctx context.Context, param *SearchParam) ([]Document, error) {
-	if err := t.applyParams(param); err != nil {
+func (t *TavilySearch) Search(ctx context.Context, query string) (retrieval.DocumentCollection, error) {
+	if err := t.applyParams(); err != nil {
 		return nil, err
 	}
+	t.Query = query
 
 	var body io.Reader
 	reqbody, err := json.Marshal(t)
@@ -136,36 +145,70 @@ func (t *TavilySearch) Search(ctx context.Context, param *SearchParam) ([]Docume
 }
 
 // applyParams
-func (t *TavilySearch) applyParams(param *SearchParam) error {
+// Available params:
+// - debug: bool
+// - limit: int
+// - topic: string
+// - search_depth: string
+// - days: int
+func (t *TavilySearch) applyParams() error {
 
-	if param.Debug {
-		t.Debug = param.Debug
+	if err := param.Assign(&t.Debug, t.options.GetOptionWithDefault("debug", false)); err != nil {
+		return err
+	}
+	if err := param.Assign(&t.MaxResults, t.options.GetOptionWithDefault("limit", 5)); err != nil {
+		return err
 	}
 
-	t.MaxResults = param.Limit
-	t.Query = param.Query
-
-	t.Topic = param.Topic
+	if err := param.Assign(&t.Topic, t.options.GetOptionWithDefault("topic", TopicGeneral)); err != nil {
+		return err
+	}
 	if t.Topic != TopicGeneral && t.Topic != TopicNews {
 		return fmt.Errorf("tavily topic error: %s is not a valid topic", t.Topic)
 	}
 
-	t.SearchDepth = param.SearchDepth
+	if err := param.Assign(&t.SearchDepth, t.options.GetOptionWithDefault("search_depth", DepthBasic)); err != nil {
+		return err
+	}
 	if t.SearchDepth != DepthBasic && t.SearchDepth != DepthAdvanced {
 		return fmt.Errorf("tavily search depth error: %s is not a valid search depth", t.SearchDepth)
 	}
 
-	t.Days = param.Days
+	if err := param.Assign(&t.Days, t.options.GetOptionWithDefault("days", DefaultDays)); err != nil {
+		return err
+	}
 	if t.Days < 1 || t.Days > 30 {
 		return fmt.Errorf("tavily days error: %d is not a valid days, days must between 1 and 30", t.Days)
+	}
+
+	var includeDomains string
+	includeDomainsUnsafe, _ := t.options.GetOption("include_domains")
+	if includeDomainsUnsafe != nil {
+		if err := param.Assign(&includeDomains, includeDomainsUnsafe); err != nil {
+			return err
+		}
+		if includeDomains != "" {
+			t.IncludeDomains = append(t.IncludeDomains, strings.Split(includeDomains, ",")...)
+		}
+	}
+
+	var excludeDomains string
+	excludeDomainsUnsafe, _ := t.options.GetOption("exclude_domains")
+	if excludeDomainsUnsafe != nil {
+		if err := param.Assign(&excludeDomains, excludeDomainsUnsafe); err != nil {
+			return err
+		}
+		if excludeDomains != "" {
+			t.ExcludeDomains = append(t.ExcludeDomains, strings.Split(excludeDomains, ",")...)
+		}
 	}
 
 	return nil
 }
 
 // formatResults 格式化搜索结果
-func (t *TavilySearch) formatResults(response TavilySearchResponse) []Document {
-	documents := make([]Document, 0)
+func (t *TavilySearch) formatResults(response TavilySearchResponse) retrieval.DocumentCollection {
+	documents := make([]retrieval.Document, 0)
 	layout := "Mon, 02 Jan 2006 15:04:05 MST"
 	for _, result := range response.Results {
 		content := result.Content
@@ -175,16 +218,16 @@ func (t *TavilySearch) formatResults(response TavilySearchResponse) []Document {
 		content = strings.TrimSpace(content)
 		content = strings.Replace(content, "\n", " ", -1)
 
-		doc := Document{
-			Content:     content,
-			Title:       result.Title,
-			URL:         result.URL,
-			PublishedAt: time.Time{},
+		doc := retrieval.Document{
+			Text:   content,
+			Name:   result.Title,
+			Source: result.URL,
+			Meta:   make(map[string]string),
 		}
 		if result.PublishedDate != nil {
 			publishedAt, err := time.Parse(layout, *result.PublishedDate)
 			if err == nil {
-				doc.PublishedAt = publishedAt
+				doc.Meta["published_date"] = publishedAt.Format("2006年 01月 02日")
 			}
 		}
 		documents = append(documents, doc)

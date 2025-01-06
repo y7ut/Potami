@@ -7,6 +7,7 @@ type Job struct {
 	Params      []string `mapstructure:"params,omitempty" json:"params,omitempty" yaml:"params,omitempty"`               // 通用 job 中的参数
 
 	LlmModel     string   `mapstructure:"llm_model,omitempty" json:"llm_model,omitempty" yaml:"llm_model,omitempty"`             // 仅在 prompt 类型的 job 中使用
+	LLMProvider  string   `mapstructure:"llm_provider,omitempty" json:"llm_provider,omitempty" yaml:"llm_provider,omitempty"`    // 仅在 prompt 类型的 job 中使用
 	Temperature  float64  `mapstructure:"temperature,omitempty" json:"temperature,omitempty" yaml:"temperature,omitempty"`       // 仅在 prompt 类型的 job 中使用
 	TopP         float64  `mapstructure:"top_p,omitempty" json:"top_p,omitempty" yaml:"top_p,omitempty"`                         // 仅在 prompt 类型的 job 中使用
 	MaxTokens    int      `mapstructure:"max_tokens,omitempty" json:"max_tokens,omitempty" yaml:"max_tokens,omitempty"`          // 仅在 prompt 类型的 job 中使用

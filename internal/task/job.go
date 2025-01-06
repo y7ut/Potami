@@ -55,17 +55,6 @@ type WithOption interface {
 	SetOption(key string, value interface{})
 }
 
-// Tracer 可堆栈记录的
-type Tracer interface {
-	GetTraceIDS() []string
-	GetCurrentTraceID() string
-	SetTraceID(string)
-	BillingRecord
-	TimerRecord
-	ErrorRecord
-	IORecord
-}
-
 // WithName 可命名的
 type WithName interface {
 	GetName() string
@@ -85,14 +74,25 @@ type WithTask interface {
 	WithAttribute
 }
 
+// Tracer 可堆栈记录的
+type Tracer interface {
+	GetTraceIDS() []string
+	GetCurrentTraceID() string
+	SetTraceID(string)
+	BillingRecord
+	TimerRecord
+	ErrorRecord
+	IORecord
+	WithOption
+}
+
 // Task中的工作
 type Job interface {
 	Handle(context.Context) error
+	Tracer
 	WithTask
 	WithName
 	WithDescription
-	WithOption
-	Tracer
 }
 
 // JobHelper trait

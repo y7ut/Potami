@@ -31,6 +31,7 @@ type Job struct {
 	SearchOptions sql.NullString  `json:"search_options"`
 	QueryField    sql.NullString  `json:"query_field"`
 	OutputField   sql.NullString  `json:"output_field"`
+	LlmProvider   sql.NullString  `json:"llm_provider"`
 }
 
 type Stream struct {

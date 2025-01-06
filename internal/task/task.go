@@ -32,7 +32,6 @@ type Task struct {
 	ErrorStacks []string // 错误堆栈
 
 	MetaData map[string]interface{} // 任务携带的数据
-	Option   map[string]interface{} // 任务配置
 
 	JobsPipline                    *list.List               // 任务管道
 	CurrentStage, ErrorReopenStage *list.Element            // 当前阶段, 错误重试阶段
