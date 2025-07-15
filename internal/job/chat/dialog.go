@@ -7,6 +7,8 @@ import (
 	"github.com/y7ut/potami/internal/parser"
 	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/pkg/message"
+
+	"github.com/y7ut/potami/pkg/llm"
 )
 
 // Dialog 对话
@@ -17,7 +19,7 @@ import (
 type Dialog struct {
 	task.JobHelper
 
-	Provider LLMProvider
+	Provider llm.Provider
 
 	System   string
 	Template string

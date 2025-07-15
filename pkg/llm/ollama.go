@@ -16,6 +16,8 @@ const (
 	OllamaDefaultCompletionModel = "llama3.1:latest"
 )
 
+var _ Provider = (*OllamaProvider)(nil)
+
 type OllamaProvider struct {
 	Client *api.Client
 
@@ -45,6 +47,9 @@ func (p *OllamaProvider) Complete(ctx context.Context, messages []*message.Messa
 		}
 		return nil
 	})
+	if err != nil {
+		return "", err
+	}
 
 	return content, nil
 }
@@ -85,8 +90,6 @@ func (p *OllamaProvider) buildRequest(messages []*message.Message) (*api.ChatReq
 	if maxToken, ok := p.tracer.GetOption("max_tokens"); ok {
 		ollamaOption["num_ctx"] = maxToken
 	}
-
-	fmt.Println(ollamaOption)
 
 	return &api.ChatRequest{
 		Messages: ollamaMessages,

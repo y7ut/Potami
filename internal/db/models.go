@@ -8,6 +8,25 @@ import (
 	"database/sql"
 )
 
+type Corpu struct {
+	ID                 int64          `json:"id"`
+	Name               string         `json:"name"`
+	Description        sql.NullString `json:"description"`
+	CollectionName     sql.NullString `json:"collection_name"`
+	RerankFusionMethod sql.NullString `json:"rerank_fusion_method"`
+	VectorStore        sql.NullString `json:"vector_store"`
+	UseBm25Index       sql.NullBool   `json:"use_bm25_index"`
+	UseContextEmbed    sql.NullBool   `json:"use_context_embed"`
+	CreatedAt          sql.NullTime   `json:"created_at"`
+	LastUpdatedAt      sql.NullTime   `json:"last_updated_at"`
+	EmbeddingProvider  sql.NullString `json:"embedding_provider"`
+	EmbeddingModel     sql.NullString `json:"embedding_model"`
+	EmbeddingOptions   sql.NullString `json:"embedding_options"`
+	VectorDimension    sql.NullInt64  `json:"vector_dimension"`
+	VectorMetricType   sql.NullString `json:"vector_metric_type"`
+	ContextEmbedPrompt sql.NullString `json:"context_embed_prompt"`
+}
+
 type Job struct {
 	ID            int64           `json:"id"`
 	StreamID      int64           `json:"stream_id"`

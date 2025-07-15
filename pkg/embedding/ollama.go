@@ -46,6 +46,7 @@ func (o *OllamaEmbedding) Embed(ctx context.Context, text string) ([]float64, er
 	if err != nil {
 		return nil, err
 	}
+	
 	return response.Embedding, nil
 }
 

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/y7ut/potami/internal/conf"
-	"github.com/y7ut/potami/internal/job/retrieval"
+	"github.com/y7ut/potami/internal/document"
 	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/pkg/param"
 )
@@ -23,6 +23,8 @@ const (
 	DefaultDays          = 7
 	TavilySearchEndpoint = "https://api.tavily.com/search"
 )
+
+var _ SearchEngine = (*TavilySearch)(nil)
 
 type TavilySearch struct {
 	MaxResults int `json:"max_results"`
@@ -94,7 +96,7 @@ func newTavilySearch(apiKey string, debug bool, includeDomain []string, excludeD
 }
 
 // Search
-func (t *TavilySearch) Search(ctx context.Context, query string) (retrieval.DocumentCollection, error) {
+func (t *TavilySearch) Search(ctx context.Context, query string) (document.DocumentCollection, error) {
 	if err := t.applyParams(); err != nil {
 		return nil, err
 	}
@@ -207,8 +209,8 @@ func (t *TavilySearch) applyParams() error {
 }
 
 // formatResults 格式化搜索结果
-func (t *TavilySearch) formatResults(response TavilySearchResponse) retrieval.DocumentCollection {
-	documents := make([]retrieval.Document, 0)
+func (t *TavilySearch) formatResults(response TavilySearchResponse) document.DocumentCollection {
+	documents := make([]document.Document, 0)
 	layout := "Mon, 02 Jan 2006 15:04:05 MST"
 	for _, result := range response.Results {
 		content := result.Content
@@ -218,16 +220,20 @@ func (t *TavilySearch) formatResults(response TavilySearchResponse) retrieval.Do
 		content = strings.TrimSpace(content)
 		content = strings.Replace(content, "\n", " ", -1)
 
-		doc := retrieval.Document{
-			Text:   content,
-			Name:   result.Title,
-			Source: result.URL,
-			Meta:   make(map[string]string),
+		doc := document.Document{
+			Text: content,
+			Name: result.Title,
+			Source: &document.Resource{
+				Name:     result.Title,
+				Address:  result.URL,
+				MineType: "text/html",
+			},
+			MetaData: make(map[string]string),
 		}
 		if result.PublishedDate != nil {
 			publishedAt, err := time.Parse(layout, *result.PublishedDate)
 			if err == nil {
-				doc.Meta["published_date"] = publishedAt.Format("2006年 01月 02日")
+				doc.MetaData["published_date"] = publishedAt.Format("2006年 01月 02日")
 			}
 		}
 		documents = append(documents, doc)

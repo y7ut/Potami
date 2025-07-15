@@ -24,11 +24,17 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.createCorpusStmt, err = db.PrepareContext(ctx, createCorpus); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCorpus: %w", err)
+	}
 	if q.createJobStmt, err = db.PrepareContext(ctx, createJob); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateJob: %w", err)
 	}
 	if q.createStreamStmt, err = db.PrepareContext(ctx, createStream); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateStream: %w", err)
+	}
+	if q.deleteCorpusStmt, err = db.PrepareContext(ctx, deleteCorpus); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCorpus: %w", err)
 	}
 	if q.deleteJobStmt, err = db.PrepareContext(ctx, deleteJob); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteJob: %w", err)
@@ -42,11 +48,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteStreamStmt, err = db.PrepareContext(ctx, deleteStream); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteStream: %w", err)
 	}
+	if q.getCorpusStmt, err = db.PrepareContext(ctx, getCorpus); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCorpus: %w", err)
+	}
 	if q.getJobByIDStmt, err = db.PrepareContext(ctx, getJobByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetJobByID: %w", err)
 	}
 	if q.getStreamByNameStmt, err = db.PrepareContext(ctx, getStreamByName); err != nil {
 		return nil, fmt.Errorf("error preparing query GetStreamByName: %w", err)
+	}
+	if q.listCorpusStmt, err = db.PrepareContext(ctx, listCorpus); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCorpus: %w", err)
 	}
 	if q.listJobsStmt, err = db.PrepareContext(ctx, listJobs); err != nil {
 		return nil, fmt.Errorf("error preparing query ListJobs: %w", err)
@@ -56,6 +68,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.listStreamsStmt, err = db.PrepareContext(ctx, listStreams); err != nil {
 		return nil, fmt.Errorf("error preparing query ListStreams: %w", err)
+	}
+	if q.updateCorpusStmt, err = db.PrepareContext(ctx, updateCorpus); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCorpus: %w", err)
 	}
 	if q.updateJobStmt, err = db.PrepareContext(ctx, updateJob); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateJob: %w", err)
@@ -68,6 +83,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.createCorpusStmt != nil {
+		if cerr := q.createCorpusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCorpusStmt: %w", cerr)
+		}
+	}
 	if q.createJobStmt != nil {
 		if cerr := q.createJobStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createJobStmt: %w", cerr)
@@ -76,6 +96,11 @@ func (q *Queries) Close() error {
 	if q.createStreamStmt != nil {
 		if cerr := q.createStreamStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createStreamStmt: %w", cerr)
+		}
+	}
+	if q.deleteCorpusStmt != nil {
+		if cerr := q.deleteCorpusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCorpusStmt: %w", cerr)
 		}
 	}
 	if q.deleteJobStmt != nil {
@@ -98,6 +123,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteStreamStmt: %w", cerr)
 		}
 	}
+	if q.getCorpusStmt != nil {
+		if cerr := q.getCorpusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCorpusStmt: %w", cerr)
+		}
+	}
 	if q.getJobByIDStmt != nil {
 		if cerr := q.getJobByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getJobByIDStmt: %w", cerr)
@@ -106,6 +136,11 @@ func (q *Queries) Close() error {
 	if q.getStreamByNameStmt != nil {
 		if cerr := q.getStreamByNameStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getStreamByNameStmt: %w", cerr)
+		}
+	}
+	if q.listCorpusStmt != nil {
+		if cerr := q.listCorpusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCorpusStmt: %w", cerr)
 		}
 	}
 	if q.listJobsStmt != nil {
@@ -121,6 +156,11 @@ func (q *Queries) Close() error {
 	if q.listStreamsStmt != nil {
 		if cerr := q.listStreamsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listStreamsStmt: %w", cerr)
+		}
+	}
+	if q.updateCorpusStmt != nil {
+		if cerr := q.updateCorpusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCorpusStmt: %w", cerr)
 		}
 	}
 	if q.updateJobStmt != nil {
@@ -172,17 +212,22 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                       DBTX
 	tx                       *sql.Tx
+	createCorpusStmt         *sql.Stmt
 	createJobStmt            *sql.Stmt
 	createStreamStmt         *sql.Stmt
+	deleteCorpusStmt         *sql.Stmt
 	deleteJobStmt            *sql.Stmt
 	deleteJobsStmt           *sql.Stmt
 	deleteJobsByStreamIDStmt *sql.Stmt
 	deleteStreamStmt         *sql.Stmt
+	getCorpusStmt            *sql.Stmt
 	getJobByIDStmt           *sql.Stmt
 	getStreamByNameStmt      *sql.Stmt
+	listCorpusStmt           *sql.Stmt
 	listJobsStmt             *sql.Stmt
 	listJobsByStreamIDStmt   *sql.Stmt
 	listStreamsStmt          *sql.Stmt
+	updateCorpusStmt         *sql.Stmt
 	updateJobStmt            *sql.Stmt
 	updateStreamStmt         *sql.Stmt
 }
@@ -191,17 +236,22 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                       tx,
 		tx:                       tx,
+		createCorpusStmt:         q.createCorpusStmt,
 		createJobStmt:            q.createJobStmt,
 		createStreamStmt:         q.createStreamStmt,
+		deleteCorpusStmt:         q.deleteCorpusStmt,
 		deleteJobStmt:            q.deleteJobStmt,
 		deleteJobsStmt:           q.deleteJobsStmt,
 		deleteJobsByStreamIDStmt: q.deleteJobsByStreamIDStmt,
 		deleteStreamStmt:         q.deleteStreamStmt,
+		getCorpusStmt:            q.getCorpusStmt,
 		getJobByIDStmt:           q.getJobByIDStmt,
 		getStreamByNameStmt:      q.getStreamByNameStmt,
+		listCorpusStmt:           q.listCorpusStmt,
 		listJobsStmt:             q.listJobsStmt,
 		listJobsByStreamIDStmt:   q.listJobsByStreamIDStmt,
 		listStreamsStmt:          q.listStreamsStmt,
+		updateCorpusStmt:         q.updateCorpusStmt,
 		updateJobStmt:            q.updateJobStmt,
 		updateStreamStmt:         q.updateStreamStmt,
 	}

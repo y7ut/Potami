@@ -2,22 +2,50 @@ package retrieval
 
 import (
 	"context"
+
+	"github.com/y7ut/potami/internal/document"
+	"github.com/y7ut/potami/internal/vector"
+	"github.com/y7ut/potami/pkg/search"
 )
 
-type SearchEngine interface {
-	Search(ctx context.Context, query string) (DocumentCollection, error)
-}
+// Retriever SearchRetriever implements Retriever
+var _ Retrieval = (*WebSearchRetriever[search.SearchEngine])(nil)
 
-// SearchRetriever 搜索检索器
-type SearchRetriever[T SearchEngine] struct {
+// Retriever CorpusSearchRetriever implements Retriever
+var _ Retrieval = (*KnowledgeBaseSearchRetriever)(nil)
+
+// WebSearchRetriever 联网搜索检索器
+type WebSearchRetriever[T search.SearchEngine] struct {
 	SearchEngine T
 }
 
 // Query Implements Retriever
-func (sr *SearchRetriever[T]) Query(ctx context.Context, query string) (DocumentCollection, error) {
+func (sr *WebSearchRetriever[T]) Query(ctx context.Context, query string) (document.DocumentCollection, error) {
 	return sr.SearchEngine.Search(ctx, query)
 }
 
-func NewSearchRetriever[T SearchEngine](searchEngine T) *SearchRetriever[T] {
-	return &SearchRetriever[T]{SearchEngine: searchEngine}
+func NewWebSearchRetriever[T search.SearchEngine](searchEngine T) *WebSearchRetriever[T] {
+	return &WebSearchRetriever[T]{SearchEngine: searchEngine}
+}
+
+// KnowledgeBaseSearchRetriever 语料库检索器
+type KnowledgeBaseSearchRetriever struct {
+	Corpus vector.Corpus
+}
+
+// Query Implements Retriever
+func (sr *KnowledgeBaseSearchRetriever) Query(ctx context.Context, query string) (document.DocumentCollection, error) {
+	vectors, err := sr.Corpus.Embedding(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	docs, err := sr.Corpus.Search(ctx, query, vectors, 10)
+	if err != nil {
+		return nil, err
+	}
+	return docs, nil
+}
+
+func NewKnowledgeBaseSearchRetriever(corpus vector.Corpus) *KnowledgeBaseSearchRetriever {
+	return &KnowledgeBaseSearchRetriever{Corpus: corpus}
 }

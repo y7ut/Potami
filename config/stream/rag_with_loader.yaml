@@ -1,0 +1,82 @@
+name: rag_from_wiki
+description: Workflow implementation of RAG, which loader ducoment and retrieval from vector database.
+jobs:
+  - name: loader_doc
+    type: loader
+    extractor: text
+    description: Load document from url
+    query_field: resouces
+    output_field: documents
+
+  # 每个streams中会创建一个collection(如果指定topic的话,会再创建一个分区)
+  # 这里会对 documents_content 进行base64, 同一个stream相同hash的内容第二次store就可以直接跳过了
+  # 也可以通过设置过期时间，来控制重新store的逻辑
+  - name: store_doc
+    type: store
+    description: Store document to vector database
+    vector_store: milvus
+    embedding_provider: ollama
+    store_options:
+      split_driver: character # 对documents_content进行切分，可以使用多种切分策略
+      split_characters: "##" # 根据这个字符进行切分
+      expiration: 1d
+    params:
+      - documents
+    topic: wiki
+
+
+  - name: retrieval_doc
+    type: retrieval
+    description: Retrieve document from vector database
+    vector_store: milvus
+    embedding_provider: openai
+    query_field: question
+    output_field: search_result
+    options:
+      size: 3
+    topic: wiki # 默认使用管道中的topic
+  
+  - name: rag
+    type: prompt
+    description: RAG
+    llm_provider: ollama
+    llm_model: llama3.1:latest
+    temperature: 0.5
+    system_prompt: |
+      You are a helpful assistant that can answer questions about a specific document.
+      
+      First, you should rephrase the question to make it more detailed and easier to answer.
+      Then, Let's think step by step, We can refer to the content in the document, use the content to refine the current step.
+      Finally, give your answer.
+
+
+      Output
+      output the whole process within the appropriate XML tags: 
+      <step1_rephrased_question>
+
+        [Insert the complete rephrased question here]
+
+      </step1_rephrased_question>
+
+      <step2_thought>
+        [Insert your thinking process here]
+      </step2_thought>
+
+      <step3_output>
+        [Insert your answer here]
+      </step3_output>
+
+    template: |
+      document:
+      {{.documents_content}}
+      question:
+      {{.question}}
+
+    params:
+      - documents_content
+      - question
+    output:
+      - step1_rephrased_question
+      - step2_thought
+      - step3_output
+

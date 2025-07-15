@@ -4,8 +4,8 @@ jobs:
   - name: translation_with_cot
     type: prompt
     description: 翻译
-    llm_provider: ollama
-    llm_model: llama3.1:latest
+    llm_provider: openai
+    llm_model: gpt-4o
     temperature: 1
     system_prompt: |
       you are a highly skilled translator tasked with translating various types of content from other languages into Chinese. Follow these instructions carefully to complete the translation task:

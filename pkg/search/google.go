@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	"github.com/y7ut/potami/internal/conf"
-	"github.com/y7ut/potami/internal/job/retrieval"
+	"github.com/y7ut/potami/internal/document"
 	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/pkg/param"
 	"google.golang.org/api/customsearch/v1"
 	googleOption "google.golang.org/api/option"
 )
 
-var _ retrieval.SearchEngine = (*GoogleCustomSearch)(nil)
+var _ SearchEngine = (*GoogleCustomSearch)(nil)
 
 type GoogleCustomSearch struct {
 	APIKey string
@@ -34,7 +34,7 @@ func NewGoogleCustomSearch(options task.WithOption) *GoogleCustomSearch {
 }
 
 // Search Implements SearchEngine
-func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string) (retrieval.DocumentCollection, error) {
+func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string) (document.DocumentCollection, error) {
 
 	if err := gcs.applyParams(); err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string) (retrie
 	if err != nil {
 		return nil, err
 	}
-	documents := make([]retrieval.Document, 0)
+	documents := make([]document.Document, 0)
 	if gcs.MaxResults > 10 {
 		limit := 10
 		for i, page := 1, 1; page <= gcs.MaxResults/limit; i, page = i+10, page+1 {
@@ -60,10 +60,14 @@ func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string) (retrie
 				return nil, err
 			}
 			for _, result := range resp.Items {
-				documents = append(documents, retrieval.Document{
-					Text:   result.Snippet,
-					Name:   result.Title,
-					Source: result.Link,
+				documents = append(documents, document.Document{
+					Text: result.Snippet,
+					Name: result.Title,
+					Source: &document.Resource{
+						Name:     result.Title,
+						Address:  result.Link,
+						MineType: "text/html",
+					},
 				})
 			}
 		}
@@ -74,10 +78,14 @@ func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string) (retrie
 			return nil, err
 		}
 		for _, result := range resp.Items {
-			documents = append(documents, retrieval.Document{
-				Text:   result.Snippet,
-				Name:   result.Title,
-				Source: result.Link,
+			documents = append(documents, document.Document{
+				Text: result.Snippet,
+				Name: result.Title,
+				Source: &document.Resource{
+					Name:     result.Title,
+					Address:  result.Link,
+					MineType: "text/html",
+				},
 			})
 		}
 

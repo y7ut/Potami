@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/shared"
 	"github.com/y7ut/potami/internal/conf"
 	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/pkg/param"
@@ -23,8 +22,9 @@ type OpenAIEmbedding struct {
 }
 
 func NewOpenAIEmbedding(options task.WithOption) *OpenAIEmbedding {
+	client := openai.NewClient(conf.GetOpenAIOptions()...)
 	return &OpenAIEmbedding{
-		client:  openai.NewClient(conf.GetOpenAIOptions()...),
+		client:  &client,
 		options: options,
 	}
 }
@@ -40,10 +40,12 @@ func (o *OpenAIEmbedding) Embed(ctx context.Context, text string) ([]float64, er
 		return nil, err
 	}
 	embeddingParams := openai.EmbeddingNewParams{
-		Input:          openai.F[openai.EmbeddingNewParamsInputUnion](shared.UnionString(text)),
-		Model:          openai.F(o.Model),
-		Dimensions:     openai.F(o.Dimensions),
-		EncodingFormat: openai.F(openai.EmbeddingNewParamsEncodingFormatFloat),
+		Input: openai.EmbeddingNewParamsInputUnion{
+			OfString: openai.String(text),
+		},
+		Model:          o.Model,
+		Dimensions:     openai.Int(o.Dimensions),
+		EncodingFormat: openai.EmbeddingNewParamsEncodingFormatFloat,
 	}
 	res, err := o.client.Embeddings.New(ctx, embeddingParams)
 	if err != nil {
@@ -58,7 +60,7 @@ func (o *OpenAIEmbedding) applyParams() error {
 		return err
 	}
 
-	if err := param.Assign(&o.Dimensions, o.options.GetOptionWithDefault("dimensions", 1)); err != nil {
+	if err := param.Assign(&o.Dimensions, o.options.GetOptionWithDefault("dimensions", 1024)); err != nil {
 		return err
 	}
 	return nil

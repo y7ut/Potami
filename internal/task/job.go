@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/y7ut/potami/pkg/param"
 )
 
 // 可记录账单的
@@ -384,4 +385,18 @@ func (j *JobHelper) SetOption(key string, value interface{}) {
 		j.Option = make(map[string]interface{}, 0)
 	}
 	j.Option[key] = value
+}
+
+func BindWithOption[T any](t WithOption, name string, value ...T) (T, error) {
+	var optionField T
+	if paramError := param.Assign(&optionField, t.GetOptionWithDefault(name, value)); paramError != nil {
+		err := fmt.Errorf("search depth mode type error, error: %v", paramError)
+		return optionField, err
+	}
+	return optionField, nil
+}
+func MustBindWithOption[T any](t WithOption, name string, value ...T) T {
+	var optionField T
+	_ = param.Assign(&optionField, t.GetOptionWithDefault(name, value))
+	return optionField
 }

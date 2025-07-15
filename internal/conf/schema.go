@@ -53,7 +53,7 @@ type httpServer struct {
 }
 
 type openai struct {
-	APIKey  string `mapstructure:"api_key"`
+	APIKey  string `mapstructure:"api_	key"`
 	BaseURL string `mapstructure:"base_url"`
 }
 
@@ -69,6 +69,12 @@ type tavily struct {
 
 	IncludeDomains []string `mapstructure:"include_domains"`
 	ExcludeDomains []string `mapstructure:"exclude_domains"`
+}
+
+type milvus struct {
+	Address  string `mapstructure:"address"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 type ollama struct {

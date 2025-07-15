@@ -15,128 +15,160 @@ import (
 )
 
 var (
-	streams          map[string]*schema.Stream
-	streamsSyncMutex sync.Mutex
+	streams      map[string]*schema.Stream
+	streamsOnce  sync.Once
+	streamsMutex sync.RWMutex
 )
 
+// InitStreams initializes the streams
 func InitStreams() {
-	if streams != nil {
-		return
-	}
-	streamsFromDB := initStreamsFromDB()
-
-	streamsSyncMutex.Lock()
-	defer streamsSyncMutex.Unlock()
-	if streams != nil {
-		return
-	}
-	streams = make(map[string]*schema.Stream)
-	for _, stream := range streamsFromDB {
-		logrus.Infof("init stream from db name %s", stream.Name)
-		streams[stream.Name] = stream
-	}
-
+	streamsOnce.Do(func() {
+		streams = make(map[string]*schema.Stream)
+		if err := loadStreamsFromDB(); err != nil {
+			logrus.WithError(err).Fatal("Failed to initialize streams from database")
+		}
+	})
 }
 
-func initStreamsFromDB() map[string]*schema.Stream {
-	streamsFromDB := make(map[string]*schema.Stream)
-	dbStreams, err := stream.List(context.Background())
+// loadStreamsFromDB loads streams from the database
+func loadStreamsFromDB() error {
+	streamsFromDB, err := fetchAndBuildStreams()
 	if err != nil {
-		logrus.Fatalf("get db streams config error: %s", err)
+		return err
 	}
 
-	dbJobs, err := job.List(context.Background())
-	if err != nil {
-		logrus.Fatalf("get db jobs config error: %s", err)
+	streamsMutex.Lock()
+	defer streamsMutex.Unlock()
+	for _, stream := range streamsFromDB {
+		logrus.Infof("Initializing stream from DB: %s", stream.Name)
+		streams[stream.Name] = stream
 	}
-	slices.SortFunc(dbJobs, func(a *db.Job, b *db.Job) int {
+	return nil
+}
+
+// fetchAndBuildStreams fetches all streams from the database and builds a map of jobs to streams
+func fetchAndBuildStreams() (map[string]*schema.Stream, error) {
+	ctx := context.Background()
+
+	dbStreams, err := stream.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	dbJobs, err := job.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	jobsStreamRelation, err := buildJobsStreamRelation(dbJobs)
+	if err != nil {
+		return nil, err
+	}
+
+	streamsResult := make(map[string]*schema.Stream)
+	for _, s := range dbStreams {
+		streamsResult[s.Name] = &schema.Stream{
+			Name:        s.Name,
+			Description: s.Description.String,
+			Jobs:        jobsStreamRelation[s.ID],
+			Level:       int(s.Level.Int64),
+		}
+	}
+	return streamsResult, nil
+}
+
+// buildJobsStreamRelation builds a map of jobs to streams
+func buildJobsStreamRelation(dbJobs []*db.Job) (map[int64][]*schema.Job, error) {
+	slices.SortFunc(dbJobs, func(a, b *db.Job) int {
 		return int(a.Sorted - b.Sorted)
 	})
+
 	jobsStreamRelation := make(map[int64][]*schema.Job)
-	for _, job := range dbJobs {
-		outputParses := make(map[string]string)
-		if job.OutputParses.Valid {
-			err := json.Unmarshal([]byte(job.OutputParses.String), &outputParses)
-			if err != nil {
-				logrus.Fatalf("get db jobs config error: %s", err)
-			}
+	for _, j := range dbJobs {
+		currentJob, err := convertDBJobToSchemaJob(j)
+		if err != nil {
+			logrus.WithError(err).Errorf("Skipping job %s due to conversion error", j.Name)
+			continue
 		}
-		searchOptions := make(map[string]interface{})
-		if job.SearchOptions.Valid {
-			err := json.Unmarshal([]byte(job.SearchOptions.String), &searchOptions)
-			if err != nil {
-				logrus.Fatalf("get db jobs config error: %s", err)
-			}
-		}
-		var params []string
-		if job.Params.Valid && job.Params.String != "" {
-			params = strings.Split(job.Params.String, ",")
-		}
-
-		var outputs []string
-		if job.Output.Valid && job.Output.String != "" {
-			outputs = strings.Split(job.Output.String, ",")
-		}
-
-		currentJob := &schema.Job{
-			Name:          job.Name,
-			Type:          job.Type,
-			Description:   job.Description.String,
-			Params:        params,
-			LlmModel:      job.LlmModel.String,
-			LLMProvider:   job.LlmProvider.String,
-			Temperature:   job.Temperature.Float64,
-			TopP:          job.TopP.Float64,
-			MaxTokens:     int(job.MaxTokens.Int64),
-			SystemPrompt:  job.SystemPrompt.String,
-			Template:      job.Template.String,
-			Endpoint:      job.Endpoint.String,
-			Method:        job.Method.String,
-			Output:        outputs,
-			OutputParses:  outputParses,
-			SearchEngine:  job.SearchEngine.String,
-			SearchOptions: searchOptions,
-			QueryField:    job.QueryField.String,
-			OutputField:   job.OutputField.String,
-		}
-		jobsStreamRelation[job.StreamID] = append(jobsStreamRelation[job.StreamID], currentJob)
+		jobsStreamRelation[j.StreamID] = append(jobsStreamRelation[j.StreamID], currentJob)
 	}
-	for _, stream := range dbStreams {
-		streamsFromDB[stream.Name] = &schema.Stream{
-			Name:        stream.Name,
-			Description: stream.Description.String,
-			Jobs:        jobsStreamRelation[stream.ID],
-			Level:       int(stream.Level.Int64),
+	return jobsStreamRelation, nil
+}
+
+// convertDBJobToSchemaJob converts a DB job to a schema job
+func convertDBJobToSchemaJob(job *db.Job) (*schema.Job, error) {
+	outputParses := make(map[string]string)
+	if job.OutputParses.Valid {
+		if err := json.Unmarshal([]byte(job.OutputParses.String), &outputParses); err != nil {
+			return nil, err
 		}
 	}
-	return streamsFromDB
+
+	searchOptions := make(map[string]interface{})
+	if job.SearchOptions.Valid {
+		if err := json.Unmarshal([]byte(job.SearchOptions.String), &searchOptions); err != nil {
+			return nil, err
+		}
+	}
+
+	var params []string
+	if job.Params.Valid && job.Params.String != "" {
+		params = strings.Split(job.Params.String, ",")
+	}
+
+	var outputs []string
+	if job.Output.Valid && job.Output.String != "" {
+		outputs = strings.Split(job.Output.String, ",")
+	}
+
+	return &schema.Job{
+		Name:          job.Name,
+		Type:          job.Type,
+		Description:   job.Description.String,
+		Params:        params,
+		LlmModel:      job.LlmModel.String,
+		LLMProvider:   job.LlmProvider.String,
+		Temperature:   job.Temperature.Float64,
+		TopP:          job.TopP.Float64,
+		MaxTokens:     int(job.MaxTokens.Int64),
+		SystemPrompt:  job.SystemPrompt.String,
+		Template:      job.Template.String,
+		Endpoint:      job.Endpoint.String,
+		Method:        job.Method.String,
+		Output:        outputs,
+		OutputParses:  outputParses,
+		SearchEngine:  job.SearchEngine.String,
+		SearchOptions: searchOptions,
+		QueryField:    job.QueryField.String,
+		OutputField:   job.OutputField.String,
+	}, nil
 }
 
 func GetStream(name string) (stream *schema.Stream, ok bool) {
-	streamsSyncMutex.Lock()
-	defer streamsSyncMutex.Unlock()
+	streamsMutex.RLock()
+	defer streamsMutex.RUnlock()
 	stream, ok = streams[name]
 	return
 }
 
 func UpdateStream(stream *schema.Stream) {
-	streamsSyncMutex.Lock()
-	defer streamsSyncMutex.Unlock()
+	streamsMutex.Lock()
+	defer streamsMutex.Unlock()
 	streams[stream.Name] = stream
 }
 
 func RemoveStream(name string) {
-	streamsSyncMutex.Lock()
-	defer streamsSyncMutex.Unlock()
+	streamsMutex.Lock()
+	defer streamsMutex.Unlock()
 	delete(streams, name)
 }
 
 func GetStreamList() []*schema.HumanFriendlyStreamConfig {
 	StreamHuamnFriendly := make([]*schema.HumanFriendlyStreamConfig, 0)
 
-	streamsSyncMutex.Lock()
+	streamsMutex.RLock()
 	streamsCurrent := streams
-	streamsSyncMutex.Unlock()
+	streamsMutex.RUnlock()
 
 	for k, v := range streamsCurrent {
 		generatorOutput := make(map[string]bool)

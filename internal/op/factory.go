@@ -9,6 +9,7 @@ import (
 	"github.com/y7ut/potami/internal/job/tool"
 	"github.com/y7ut/potami/internal/schema"
 	"github.com/y7ut/potami/internal/task"
+	"github.com/y7ut/potami/pkg/embedding"
 	"github.com/y7ut/potami/pkg/llm"
 	"github.com/y7ut/potami/pkg/search"
 )
@@ -18,20 +19,29 @@ const DEFAULT_TASK_LEVEL = 100
 var (
 	streamFactory    *task.StreamTaskFactory
 	factorySyncMutex sync.Mutex
-	searchRetrievers = map[string]func(options task.WithOption) retrieval.SearchEngine{
-		"tavily": func(options task.WithOption) retrieval.SearchEngine {
+
+	SearchRetrievers = map[string]func(options task.WithOption) search.SearchEngine{
+		"tavily": func(options task.WithOption) search.SearchEngine {
 			return search.NewTavilySearch(options)
 		},
-		"google": func(options task.WithOption) retrieval.SearchEngine {
+		"google": func(options task.WithOption) search.SearchEngine {
 			return search.NewGoogleCustomSearch(options)
 		},
 	}
-	llmProviders = map[string]func(tracer task.Tracer) chat.LLMProvider{
-		"openai": func(tracer task.Tracer) chat.LLMProvider {
+	LLMProviders = map[string]func(tracer task.Tracer) llm.Provider{
+		"openai": func(tracer task.Tracer) llm.Provider {
 			return llm.NewOpenAIProvider(tracer)
 		},
-		"ollama": func(tracer task.Tracer) chat.LLMProvider {
+		"ollama": func(tracer task.Tracer) llm.Provider {
 			return llm.NewOllamaProvider(tracer)
+		},
+	}
+	EmbedProviders = map[string]func(options task.WithOption) embedding.Embed{
+		"ollama": func(options task.WithOption) embedding.Embed {
+			return embedding.NewOllamaEmbedding(options)
+		},
+		"openai": func(options task.WithOption) embedding.Embed {
+			return embedding.NewOpenAIEmbedding(options)
 		},
 	}
 )
@@ -85,9 +95,9 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 						Template: job.Template,
 					}
 
-					generateProvider, avaliable := llmProviders[job.LLMProvider]
+					generateProvider, avaliable := LLMProviders[job.LLMProvider]
 					if !avaliable {
-						generateProvider = llmProviders["openai"]
+						generateProvider = LLMProviders["openai"]
 					}
 
 					promptJob.Provider = generateProvider(promptJob)
@@ -128,17 +138,17 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 				}
 
 				if job.Type == "search" {
-					searchEngineInit, ok := searchRetrievers[job.SearchEngine]
+					searchEngineInit, ok := SearchRetrievers[job.SearchEngine]
 					if !ok {
-						searchEngineInit = searchRetrievers["tavily"]
+						searchEngineInit = SearchRetrievers["tavily"]
 					}
 
-					searchJob := &retrieval.Retrieval{
+					searchJob := &retrieval.Retriever{
 						QueryField:  job.QueryField,
 						OutputField: job.OutputField,
 					}
 
-					searchJob.Retriever = retrieval.NewSearchRetriever(searchEngineInit(searchJob))
+					searchJob.Retrieval = retrieval.NewWebSearchRetriever(searchEngineInit(searchJob))
 
 					if limit, ok := job.SearchOptions["limit"]; ok {
 						searchJob.SetOption("limit", limit)

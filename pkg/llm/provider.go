@@ -1,4 +1,4 @@
-package chat
+package llm
 
 import (
 	"context"
@@ -6,6 +6,6 @@ import (
 	"github.com/y7ut/potami/pkg/message"
 )
 
-type LLMProvider interface {
+type Provider interface {
 	Complete(ctx context.Context, messages []*message.Message) (string, error)
 }

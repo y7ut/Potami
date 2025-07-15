@@ -10,26 +10,28 @@ import (
 	"github.com/y7ut/potami/pkg/message"
 )
 
+const (
+	OpenAIDefaultCompletionModel = openai.ChatModelGPT4o
+)
+
 var prizeMap = map[string]func(inputToken, outputToken int64) float64{
 	"gpt-4o": func(inputToken, outputToken int64) float64 {
 		return float64(inputToken)*2.5/1000000 + float64(outputToken)*10/1000000
 	},
 }
 
-const (
-	OpenAIDefaultCompletionModel = openai.ChatModelGPT4o
-)
+var _ Provider = (*OpenAIProvider)(nil)
 
 type OpenAIProvider struct {
-	OpenAIClient  *openai.Client
-	requestParams *openai.ChatCompletionNewParams
+	OpenAIClient *openai.Client
 
 	tracer task.Tracer
 }
 
 func NewOpenAIProvider(tracer task.Tracer) *OpenAIProvider {
+	client := openai.NewClient(conf.GetOpenAIOptions()...)
 	return &OpenAIProvider{
-		OpenAIClient: openai.NewClient(conf.GetOpenAIOptions()...),
+		OpenAIClient: &client,
 		tracer:       tracer,
 	}
 }
@@ -71,15 +73,10 @@ func (p *OpenAIProvider) buildParams(messages []*message.Message) (*openai.ChatC
 	}
 
 	req := &openai.ChatCompletionNewParams{
-		Model:    openai.Raw[string](p.tracer.GetOptionWithDefault("model", OllamaDefaultCompletionModel)),
-		Messages: openai.F(openaiMessages),
-	}
-
-	if temperatur, ok := p.tracer.GetOption("temperature"); ok {
-		req.Temperature = openai.Raw[float64](temperatur)
-	}
-	if TopP, ok := p.tracer.GetOption("top_p"); ok {
-		req.TopP = openai.Raw[float64](TopP)
+		Model:       task.MustBindWithOption(p.tracer, "model", OpenAIDefaultCompletionModel),
+		Messages:    openaiMessages,
+		Temperature: openai.Float(task.MustBindWithOption(p.tracer, "temperatur", 0.7)),
+		TopP:        openai.Float(task.MustBindWithOption(p.tracer, "top_p", 1.0)),
 	}
 
 	return req, nil

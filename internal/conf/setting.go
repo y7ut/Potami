@@ -34,6 +34,8 @@ var (
 	GoogleCustomSearch googleCustomSearch
 	// Ollama ollama 配置
 	Ollama ollama
+	// Milvus milvus 配置
+	Milvus milvus
 )
 
 func InitConfig() {
@@ -68,6 +70,7 @@ func InitConfig() {
 		"tavily":               &Tavily,
 		"google_custom_search": &GoogleCustomSearch,
 		"ollama":               &Ollama,
+		"milvus":               &Milvus,
 	}
 
 	for k, v := range configs {

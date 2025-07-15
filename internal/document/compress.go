@@ -1,25 +1,55 @@
-package retrieval
+package document
 
 import (
 	"fmt"
 	"strings"
 )
 
-type Document struct {
-	ID     string
-	Name   string
-	Text   string
-	Meta   map[string]string
-	Embed  []float32
-	Source string
-	Score  float64
+var defaultCompressMethod = func(doc Document) string {
+	return fmt.Sprintf("《%s》\n%s\n", doc.Name, doc.Text)
 }
 
-type DocumentCollection []Document
+var defaultCompressConfig = &ComppressConfig{
+	CompressMethod: defaultCompressMethod,
+	Size:           1000,
+	Depth:          true,
+}
+
+type ComppressConfig struct {
+	CompressMethod func(Document) string
+	Size           int
+	Depth          bool
+}
+
+func WithCompressMethod(compressFunc func(Document) string) func(*ComppressConfig) {
+	return func(config *ComppressConfig) {
+		config.CompressMethod = compressFunc
+	}
+}
+
+func WithSize(size int) func(*ComppressConfig) {
+	return func(config *ComppressConfig) {
+		config.Size = size
+	}
+}
+
+func WithDepth(depth bool) func(*ComppressConfig) {
+	return func(config *ComppressConfig) {
+		config.Depth = depth
+	}
+}
+
+func (d DocumentCollection) Compress(options ...func(*ComppressConfig)) string {
+	config := defaultCompressConfig
+	for _, option := range options {
+		option(config)
+	}
+	return d.compress(config.CompressMethod, config.Size, config.Depth)
+}
 
 // Compress 格式化并压缩输出
 // compressFunc 压缩函数, 返回压缩后的文本 size 压缩后的文本最大长度 depth 压缩时会深度优先
-func (d DocumentCollection) Compress(compressFunc func(Document) string, size int, depth bool) string {
+func (d DocumentCollection) compress(compressFunc func(Document) string, size int, depth bool) string {
 	compressResult := make(map[string]int)
 	length := 0
 	for _, doc := range d {

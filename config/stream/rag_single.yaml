@@ -1,0 +1,82 @@
+name: rag_from_wiki
+description: Workflow implementation of RAG, which loader ducoment and retrieval from vector database.
+jobs:
+  
+  - name: 分析如何从wiki中找哪些Docuement 
+    type: prompt
+    description: think how to get document from wiki
+    llm_provider: ollama
+    llm_model: llama3.1:latest
+    temperature: 0.5
+    system_prompt: |
+      尝试从问题中生成用于检索的关键词，这些关键词将用于从知识库中检索文档。
+
+    template: |
+      document:
+      {{.documents_content}}
+      question:
+      {{.question}}
+
+    params:
+      - documents_content
+      - question
+    output:
+      - step1_rephrased_question
+      - step2_thought
+      - step3_output
+
+  - name: retrieval_doc
+    type: retrieval
+    description: Retrieve document from vector database
+    vector_store: milvus
+    embedding_provider: openai
+    query_field: question
+    output_field: search_result
+    store_options:
+      size: 3
+    topic: wiki # 默认使用管道中的topic
+  
+  - name: rag
+    type: prompt
+    description: RAG
+    llm_provider: ollama
+    llm_model: deepseek-r1:8b
+    temperature: 0.5
+    system_prompt: |
+      You are a helpful assistant that can answer questions about a specific document.
+      
+      First, you should rephrase the question to make it more detailed and easier to answer.
+      Then, Let's think step by step, We can refer to the content in the document, use the content to refine the current step.
+      Finally, give your answer.
+
+
+      Output
+      output the whole process within the appropriate XML tags: 
+      <step1_rephrased_question>
+
+        [Insert the complete rephrased question here]
+
+      </step1_rephrased_question>
+
+      <step2_thought>
+        [Insert your thinking process here]
+      </step2_thought>
+
+      <step3_output>
+        [Insert your answer here]
+      </step3_output>
+
+    template: |
+      document:
+      {{.documents_content}}
+      question:
+      {{.question}}
+
+    params:
+      - documents_content
+      - question
+    output:
+      - step1_rephrased_question
+      - step2_thought
+      - step3_output
+

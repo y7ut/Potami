@@ -1,8 +1,6 @@
 package task
 
 import (
-	"fmt"
-
 	"github.com/y7ut/potami/pkg/json"
 )
 
@@ -12,13 +10,8 @@ func (task *Task) MarshalJSON() ([]byte, error) {
 	taskInfo["uuid"] = task.ID
 	taskInfo["name"] = task.Call
 	taskInfo["level"] = task.level
-	taskInfo["arrived_nodes"] = task.Arrived
-	taskInfo["current_description"] = task.CurrentStage.Value.(Job).GetName()
-	taskInfo["complete"] = fmt.Sprintf("%.2f", task.GetCompleteness())
 	taskInfo["length"] = task.JobsPipline.Len()
-	taskInfo["max_error_count"] = task.maxHit + 1 // 最大错误次数，包含第一次
-	taskInfo["current_error_count"] = task.errorHit
-	taskInfo["health"] = fmt.Sprintf("%.2f", task.Health())
+	taskInfo["allow_retry_count"] = task.maxHit + 1 // 最大错误次数，包含第一次
 	taskInfo["start_at"] = task.StartAt
 	taskInfo["created_at"] = task.CreatedAt
 	taskInfo["complete_at"] = task.CompleteAt
