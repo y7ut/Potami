@@ -53,7 +53,7 @@ type httpServer struct {
 }
 
 type openai struct {
-	APIKey  string `mapstructure:"api_	key"`
+	APIKey  string `mapstructure:"api_key"`
 	BaseURL string `mapstructure:"base_url"`
 }
 

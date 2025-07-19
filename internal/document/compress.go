@@ -53,7 +53,7 @@ func (d DocumentCollection) compress(compressFunc func(Document) string, size in
 	compressResult := make(map[string]int)
 	length := 0
 	for _, doc := range d {
-		compressed := compressFunc(doc)
+		compressed := compressFunc(*doc)
 		compressResult[compressed] = len(compressed)
 		length += len(compressed)
 	}

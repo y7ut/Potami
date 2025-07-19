@@ -49,6 +49,7 @@ func Run() {
 
 	// 阻塞等待退出信号
 	<-waitExitSign()
+	op.StopMilvusConnectionPool()
 	server.Stop()
 	op.TaskQueue.Close()
 	op.Dispatcher.Stop()

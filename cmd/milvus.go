@@ -2,17 +2,14 @@ package cmd
 
 import (
 	"fmt"
-	"time"
 	"unicode/utf8"
 
-	"github.com/milvus-io/milvus/client/v2/milvusclient"
 	"github.com/spf13/cobra"
-	"github.com/y7ut/potami/internal/conf"
 	"github.com/y7ut/potami/internal/document"
-	"github.com/y7ut/potami/internal/job"
-	"github.com/y7ut/potami/pkg/embedding"
+	"github.com/y7ut/potami/internal/op"
+	"github.com/y7ut/potami/internal/schema"
+	"github.com/y7ut/potami/internal/vector"
 	"github.com/y7ut/potami/pkg/spliter"
-	"github.com/y7ut/potami/pkg/vector/milvus"
 )
 
 const article_1 = `
@@ -120,83 +117,55 @@ var MilvusCmd = &cobra.Command{
 	Use:   "milvus",
 	Short: "Milvus CLI",
 	Run: func(cmd *cobra.Command, args []string) {
-
-		config := &milvusclient.ClientConfig{
-			Address:  conf.Milvus.Address,
-			Username: conf.Milvus.Username,
-			Password: conf.Milvus.Password,
+		op.Initialized()
+		corpusSchema := &schema.Corpus{
+			Name:              "语料库-测试8",
+			CollectionName:    "potami_test_8_bm25_context",
+			VectorDimension:   768,
+			EmbeddingProvider: "ollama",
+			EmbeddingOptions: map[string]interface{}{
+				"context_generate_llm_provider": "openai",
+				"context_generate_llm_model":    "anthropic/claude-3.5-haiku",
+			},
+			UseBm25Index:    true,
+			UseContextEmbed: true,
 		}
-		collection := "potami_test_2"
-		partition := "p_1"
-		mpc := milvus.NewMilvusConnectionPool(3, 5*time.Second, config)
-		mpc.Start()
 
-		if len(args) > 0 && args[0] == "upsert" {
-			client, err := mpc.GetConnection(
-				milvus.WithCollection(collection),
-				milvus.WithPartition(partition),
-				milvus.WithUseBM25(true),
-			)
+		myCorpus, err := op.CreateCorpusFromSchema(corpusSchema)
+		if err != nil {
+			cmd.PrintErrln(err)
+			return
+		}
+
+		go func() {
+
+			corpusSchema2 := &schema.Corpus{
+				Name:              "语料库-测试7",
+				CollectionName:    "potami_test_7",
+				VectorDimension:   768,
+				EmbeddingProvider: "ollama",
+				EmbeddingOptions: map[string]interface{}{
+					"context_generate_llm_provider": "openai",
+					"context_generate_llm_model":    "anthropic/claude-3.5-haiku",
+				},
+				UseBm25Index:    false,
+				UseContextEmbed: false,
+			}
+
+			myCorpus2, err := op.CreateCorpusFromSchema(corpusSchema2)
 			if err != nil {
 				cmd.PrintErrln(err)
 				return
 			}
-			upsertDocs(cmd, client)
-		}
-		if len(args) > 0 && args[0] == "search" {
-			client, err := mpc.GetConnection(
-				milvus.WithCollection(collection),
-				milvus.WithPartition(partition),
-				milvus.WithUseBM25(true),
-			)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
-			search(cmd, client, "中世纪欧洲的大海中水手的故事")
-		}
 
-		if len(args) == 0 {
-			// client, err := mpc.GetConnection(
-			// 	milvus.WithCollection(collection),
-			// 	milvus.WithPartition(partition),
-			// 	milvus.WithUseBM25(true),
-			// )
-			// if err != nil {
-			// 	cmd.PrintErrln(err)
-			// 	return
-			// }
-			// upsertDocs(cmd, client)
+			UpsertDocsAndSearch(cmd, myCorpus)
 
-			go func() {
-				client, err := mpc.GetConnection(
-					milvus.WithCollection(collection),
-					milvus.WithPartition(partition),
-					milvus.WithUseBM25(true),
-				)
-				if err != nil {
-					cmd.PrintErrln(err)
-					return
-				}
-				search(cmd, client, "中世纪欧洲的大海中水手的故事")
-			}()
+			UpsertDocsAndSearch(cmd, myCorpus2)
+		}()
 
-			client, err := mpc.GetConnection(
-				milvus.WithCollection(collection),
-				milvus.WithPartition(partition),
-				milvus.WithUseBM25(true),
-			)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
-			search(cmd, client, "游戏职业的选择对玩家来说很重要")
-
-			time.Sleep(15 * time.Second)
-			mpc.Stop()
-			time.Sleep(1 * time.Second)
-		}
-
+		// 阻塞等待退出信号
+		<-waitExitSign()
+		op.StopMilvusConnectionPool()
 	},
 }
 
@@ -204,12 +173,12 @@ func init() {
 	RootCmd.AddCommand(MilvusCmd)
 }
 
-func upsertDocs(cmd *cobra.Command, client *milvus.PooledConnection) {
+func UpsertDocsAndSearch(cmd *cobra.Command, corpus *vector.Corpus) {
 
-	fakeJob := &job.Job{}
+	// fakeJob := &job.Job{}
 
-	OpenAIEmbedding := embedding.NewOllamaEmbedding(fakeJob)
-	fakeJob.SetOption("dimensions", milvus.VECTOR_DIMENSION)
+	// OpenAIEmbedding := embedding.NewOllamaEmbedding(fakeJob)
+	// fakeJob.SetOption("dimensions", 768)
 
 	articleResources := []document.Resource{
 		{
@@ -226,7 +195,7 @@ func upsertDocs(cmd *cobra.Command, client *milvus.PooledConnection) {
 		},
 	}
 
-	docs := make([]document.Document, 0)
+	docs := make([]*document.Document, 0)
 
 	autoSpliter := spliter.AutoSplitter{
 		ChunkSize: 1024,
@@ -236,65 +205,34 @@ func upsertDocs(cmd *cobra.Command, client *milvus.PooledConnection) {
 		dc := autoSpliter.Split(cmd.Context(), &resource)
 
 		for i, doc := range dc {
-			vector, err := OpenAIEmbedding.Embed(cmd.Context(), doc.Text)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
 
 			d := doc
-			d.Embed = vector
 			d.MetaData = map[string]string{
 				"article_id":    fmt.Sprintf("%s_%d", doc.Source.Name, i+1),
 				"article_index": fmt.Sprintf("%d", i+1),
 				"chunk_length":  fmt.Sprintf("%d", len(doc.Text)),
 				"rune_count":    fmt.Sprintf("%d", utf8.RuneCountInString(doc.Text)),
 			}
+
 			docs = append(docs, d)
 		}
 	}
-	// docsjson, _ := json.MarshalIndent(docs, "", "  ")
-	// fmt.Println(string(docsjson))
-	// os.Exit(0)
+
 	var err error
 	cmd.Println("upsert docs")
-	err = client.Upsert(cmd.Context(), docs...)
+	err = corpus.Upsert(cmd.Context(), docs...)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
 	}
 
-	res, err := client.Query(cmd.Context(), 1, 5)
+	docs, err = corpus.Search(cmd.Context(), "游戏技能设计有哪些典型的案例", 3)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
 	}
-	for _, doc := range res {
+	for _, doc := range docs {
 		cmd.Printf("get doc: %s\n", doc)
-	}
-
-}
-
-func search(cmd *cobra.Command, client *milvus.PooledConnection, query string) {
-
-	fakeJob := &job.Job{}
-
-	OpenAIEmbedding := embedding.NewOllamaEmbedding(fakeJob)
-	fakeJob.SetOption("dimensions", milvus.VECTOR_DIMENSION)
-
-	vector, err := OpenAIEmbedding.Embed(cmd.Context(), query)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
-
-	res, err := client.Search(cmd.Context(), query, vector, 3)
-	if err != nil {
-		cmd.PrintErrln("search err: ", err)
-		return
-	}
-	for _, doc := range res {
-		cmd.Printf("get doc: \n %s\n", doc)
 	}
 
 }

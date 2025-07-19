@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/y7ut/potami/internal/document"
+	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/internal/vector"
 	"github.com/y7ut/potami/pkg/search"
 )
@@ -31,15 +32,14 @@ func NewWebSearchRetriever[T search.SearchEngine](searchEngine T) *WebSearchRetr
 // KnowledgeBaseSearchRetriever 语料库检索器
 type KnowledgeBaseSearchRetriever struct {
 	Corpus vector.Corpus
+
+	options task.WithOption
 }
 
 // Query Implements Retriever
 func (sr *KnowledgeBaseSearchRetriever) Query(ctx context.Context, query string) (document.DocumentCollection, error) {
-	vectors, err := sr.Corpus.Embedding(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	docs, err := sr.Corpus.Search(ctx, query, vectors, 10)
+	limit := task.MustBindWithOption(sr.options, "limit", 3)
+	docs, err := sr.Corpus.Search(ctx, query, limit)
 	if err != nil {
 		return nil, err
 	}

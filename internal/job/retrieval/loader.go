@@ -10,12 +10,13 @@ import (
 	"os"
 
 	"github.com/y7ut/potami/internal/task"
+	"github.com/y7ut/potami/internal/vector"
 )
 
 type Loader struct {
-	ResourceExtractor    Extractor
-	ChunkSplitter        Splitter
-	KnowledgeBaseBuilder KnowledgeBaseBuilder
+	ResourceExtractor Extractor
+	ChunkSplitter     Splitter
+	Corpus            vector.Corpus
 
 	QueryField  string
 	OutputField string
@@ -45,7 +46,7 @@ func (l *Loader) Handle(ctx context.Context) (err error) {
 		err := fmt.Errorf("query field %s not string", l.QueryField)
 		return err
 	}
-
+	
 	resourceData, err := loadResource(address)
 	if err != nil {
 		err = fmt.Errorf("load resource error: %v", err)
@@ -57,15 +58,11 @@ func (l *Loader) Handle(ctx context.Context) (err error) {
 		return err
 	}
 
-	l.SetAttribute(l.OutputField, resource)
-
 	docs := l.ChunkSplitter.Split(ctx, resource)
 
-	for _, chunk := range docs {
-		err = l.KnowledgeBaseBuilder.Store(ctx, chunk)
-		if err != nil {
-			l.Logger().WithError(err).Warnf("store document error: %v", err)
-		}
+	if err = l.Corpus.Upsert(ctx, docs...); err != nil {
+		err = fmt.Errorf("corpus upsert error: %v", err)
+		return
 	}
 
 	return nil

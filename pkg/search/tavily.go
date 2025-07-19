@@ -210,7 +210,7 @@ func (t *TavilySearch) applyParams() error {
 
 // formatResults 格式化搜索结果
 func (t *TavilySearch) formatResults(response TavilySearchResponse) document.DocumentCollection {
-	documents := make([]document.Document, 0)
+	documents := make([]*document.Document, 0)
 	layout := "Mon, 02 Jan 2006 15:04:05 MST"
 	for _, result := range response.Results {
 		content := result.Content
@@ -220,7 +220,7 @@ func (t *TavilySearch) formatResults(response TavilySearchResponse) document.Doc
 		content = strings.TrimSpace(content)
 		content = strings.Replace(content, "\n", " ", -1)
 
-		doc := document.Document{
+		doc := &document.Document{
 			Text: content,
 			Name: result.Title,
 			Source: &document.Resource{

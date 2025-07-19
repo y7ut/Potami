@@ -10,6 +10,16 @@ import (
 	"github.com/y7ut/potami/pkg/param"
 )
 
+type UsageDetail interface {
+	Format() map[string]interface{}
+}
+
+type UsageRecord interface {
+	Usage(UsageDetail)
+	GetUsages() map[string]UsageDetail
+	GetUsage(traceId string) (UsageDetail, error)
+}
+
 // 可记录账单的
 type BillingRecord interface {
 	Billing(float64)
@@ -80,6 +90,7 @@ type Tracer interface {
 	GetTraceIDS() []string
 	GetCurrentTraceID() string
 	SetTraceID(string)
+	UsageRecord
 	BillingRecord
 	TimerRecord
 	ErrorRecord
@@ -106,6 +117,7 @@ type JobHelper struct {
 	startAts         map[string]time.Time
 	finishAts        map[string]time.Time
 	bills            map[string]float64
+	usages           map[string]UsageDetail
 	Errors           map[string]string
 	Task             *Task
 	Option           map[string]interface{} // 任务配置
@@ -359,7 +371,7 @@ func (j *JobHelper) GetError(traceId string) (string, error) {
 func (j *JobHelper) GetOptionWithDefault(key string, defaultValue ...interface{}) interface{} {
 	option, ok := j.GetOption(key)
 	if !ok && len(defaultValue) > 0 {
-		j.SetOption(key, defaultValue[0])
+		// j.SetOption(key, defaultValue[0])
 		return defaultValue[0]
 	}
 	return option
@@ -387,7 +399,7 @@ func (j *JobHelper) SetOption(key string, value interface{}) {
 	j.Option[key] = value
 }
 
-func BindWithOption[T any](t WithOption, name string, value ...T) (T, error) {
+func BindWithOption[T any](t WithOption, name string, value T) (T, error) {
 	var optionField T
 	if paramError := param.Assign(&optionField, t.GetOptionWithDefault(name, value)); paramError != nil {
 		err := fmt.Errorf("search depth mode type error, error: %v", paramError)
@@ -395,8 +407,30 @@ func BindWithOption[T any](t WithOption, name string, value ...T) (T, error) {
 	}
 	return optionField, nil
 }
-func MustBindWithOption[T any](t WithOption, name string, value ...T) T {
+func MustBindWithOption[T any](t WithOption, name string, value T) T {
 	var optionField T
 	_ = param.Assign(&optionField, t.GetOptionWithDefault(name, value))
 	return optionField
+}
+
+func (j *JobHelper) Usage(u UsageDetail) {
+	if j.usages == nil {
+		j.usages = make(map[string]UsageDetail, 0)
+	}
+	j.usages[j.GetCurrentTraceID()] = u
+}
+
+func (j *JobHelper) GetUsage(traceId string) (UsageDetail, error) {
+	if j.usages == nil {
+		return nil, nil
+	}
+	usage, ok := j.usages[traceId]
+	if !ok {
+		return nil, fmt.Errorf("trace %s not found", traceId)
+	}
+	return usage, nil
+}
+
+func (j *JobHelper) GetUsages() map[string]UsageDetail {
+	return j.usages
 }

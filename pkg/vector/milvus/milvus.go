@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -16,24 +15,37 @@ import (
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/index"
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
+	"github.com/sirupsen/logrus"
 	"github.com/y7ut/potami/internal/document"
 )
 
+// PooledConnection 连接
+type PooledConnection struct {
+	client   *milvusclient.Client
+	params   *MilvusParams
+	lastUsed time.Time
+
+	refCount int32 // 引用计数
+}
+
+func (m *PooledConnection) acquire() {
+	atomic.AddInt32(&m.refCount, 1)
+}
+
 func (m *PooledConnection) release() {
 	atomic.AddInt32(&m.refCount, -1)
+	m.lastUsed = time.Now()
 }
 
 // isHealthy 检查连接是否健康
-func (m *PooledConnection) isHealthy() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	
+func (m *PooledConnection) isHealthy(ctx context.Context) error {
 	// 使用轻量级操作检查连接状态
 	_, err := m.client.ListCollections(ctx, milvusclient.NewListCollectionOption())
-	return err == nil
+	return err
 }
 
 func (m *PooledConnection) Query(ctx context.Context, id ...int) (document.DocumentCollection, error) {
+	m.acquire()
 	defer m.release()
 	if len(id) == 0 {
 		return nil, fmt.Errorf("id is empty")
@@ -52,56 +64,16 @@ func (m *PooledConnection) Query(ctx context.Context, id ...int) (document.Docum
 	if err != nil {
 		return nil, err
 	}
-	documents := make([]document.Document, searchResult.ResultCount)
-
-	// Process search results
-	for _, column := range searchResult.Fields {
-		if column.Name() == "text" {
-			for i := 0; i < column.Len(); i++ {
-				text, err := column.GetAsString(i)
-				if err != nil {
-					return nil, err
-				}
-				documents[i].Text = text
-			}
-		}
-		if column.Name() == "context_text" {
-			for i := 0; i < column.Len(); i++ {
-				contextText, err := column.GetAsString(i)
-				if err != nil {
-					return nil, err
-				}
-				documents[i].Context = contextText
-			}
-		}
-		if column.Name() == "id" {
-			for i := 0; i < column.Len(); i++ {
-				id, err := column.GetAsInt64(i)
-				if err != nil {
-					return nil, err
-				}
-				documents[i].ID = fmt.Sprintf("%d", id)
-			}
-		}
-		if column.Name() == "dynamic_json" {
-			for i := 0; i < column.Len(); i++ {
-				dynamicJson, err := column.GetAsString(i)
-				if err != nil {
-					return nil, err
-				}
-				var meta map[string]string
-				err = json.Unmarshal([]byte(dynamicJson), &meta)
-				if err != nil {
-					return nil, err
-				}
-				documents[i].MetaData = meta
-			}
-		}
+	docs, err := decodeResultSets(searchResult)
+	if err != nil {
+		return nil, err
 	}
-	return documents, nil
+
+	return docs, nil
 }
 
 func (m *PooledConnection) Search(ctx context.Context, query string, vectors []float64, limit int) (document.DocumentCollection, error) {
+	m.acquire()
 	defer m.release()
 	// convert float64 to []entity.Vector
 	queryVector := make([]float32, 0)
@@ -116,13 +88,13 @@ func (m *PooledConnection) Search(ctx context.Context, query string, vectors []f
 
 	if m.params.useBM25 {
 		annParam := index.NewSparseAnnParam()
-		annParam.WithDropRatio(0.2)
-		bm25Request := milvusclient.NewAnnRequest("text_sparse", 2, entity.Text(query)).WithAnnParam(annParam)
+		annParam.WithDropRatio(BM25_SPARSE_DROP_RATIO)
+		bm25Request := milvusclient.NewAnnRequest("text_sparse", limit, entity.Text(query)).WithAnnParam(annParam)
 		hybirdRequests = append(hybirdRequests, bm25Request)
 	}
 
 	if m.params.useContextEmbed {
-		contextAnnRequest := milvusclient.NewAnnRequest("text_dense", limit, entity.FloatVector(queryVector)).WithAnnParam(index.NewIvfAnnParam(10))
+		contextAnnRequest := milvusclient.NewAnnRequest("context_emb", limit, entity.FloatVector(queryVector)).WithAnnParam(index.NewIvfAnnParam(10))
 		hybirdRequests = append(hybirdRequests, contextAnnRequest)
 	}
 
@@ -133,7 +105,7 @@ func (m *PooledConnection) Search(ctx context.Context, query string, vectors []f
 	}
 
 	reranker := milvusclient.NewRRFReranker().WithK(100)
-
+	logrus.Debug("Using hybrid search request length: ", len(hybirdRequests))
 	searchOption := milvusclient.NewHybridSearchOption(
 		m.params.Collection, // collectionName
 		limit,               // limit
@@ -149,20 +121,16 @@ func (m *PooledConnection) Search(ctx context.Context, query string, vectors []f
 	if err != nil {
 		return nil, err
 	}
-	hybirdRequestsDocuments, err := decodeResultSets(resultSets)
+	hybirdRequestsDocuments, err := decodeResultSets(resultSets...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode result sets: %v", err)
 	}
-	documents := make([]document.Document, 0)
 
-	for _, collection := range hybirdRequestsDocuments {
-		documents = append(documents, collection...)
-	}
-
-	return documents, nil
+	return hybirdRequestsDocuments, nil
 }
 
-func (m *PooledConnection) Upsert(ctx context.Context, documents ...document.Document) error {
+func (m *PooledConnection) Upsert(ctx context.Context, documents ...*document.Document) error {
+	m.acquire()
 	defer m.release()
 	if len(documents) == 0 {
 		return fmt.Errorf("documents is empty")
@@ -196,7 +164,7 @@ func (m *PooledConnection) Upsert(ctx context.Context, documents ...document.Doc
 
 	textColumn := column.NewColumnVarChar("text", textColumnData)
 	dynamicFieldColumn := column.NewColumnJSONBytes("dynamic_json", mateDataColumnData)
-	vectorColumn := column.NewColumnFloatVector("text_dense", VECTOR_DIMENSION, vectorColumnData)
+	vectorColumn := column.NewColumnFloatVector("text_dense", int(m.params.Dimensions), vectorColumnData)
 
 	// new UpsertOption
 	upsertOption := milvusclient.NewColumnBasedInsertOption(m.params.Collection, textColumn, dynamicFieldColumn, vectorColumn)
@@ -217,8 +185,8 @@ func (m *PooledConnection) Upsert(ctx context.Context, documents ...document.Doc
 			contextEmbedColumnData = append(contextEmbedColumnData, contextEmbed)
 		}
 
-		contextColumn := column.NewColumnString("context", contextColumnData)
-		contextEmbedColumn := column.NewColumnFloatVector("context_embed", VECTOR_DIMENSION, contextEmbedColumnData)
+		contextColumn := column.NewColumnVarChar("context_text", contextColumnData)
+		contextEmbedColumn := column.NewColumnFloatVector("context_emb", int(m.params.Dimensions), contextEmbedColumnData)
 		upsertOption.WithColumns(contextColumn, contextEmbedColumn)
 	}
 
@@ -245,7 +213,10 @@ func (m *PooledConnection) Upsert(ctx context.Context, documents ...document.Doc
 }
 
 func releaseCollection(ctx context.Context, m *PooledConnection) error {
-	log.Printf("release collection: %s \n", m.params.Collection)
+	logrus.WithFields(logrus.Fields{
+		"connection_id": m.params.Hash(),
+		"collection":    m.params.Collection,
+	}).Debug("Releasing collection")
 	return m.client.ReleaseCollection(ctx, milvusclient.NewReleaseCollectionOption(m.params.Collection))
 }
 
@@ -254,22 +225,26 @@ func (m *PooledConnection) Close(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("close connection: %s\n", m.params.Collection)
+	logrus.WithFields(logrus.Fields{
+		"connection_id": m.params.Hash(),
+		"collection":    m.params.Collection,
+	}).Debug("Closing connection")
 	return m.client.Close(ctx)
 }
 
-func decodeResultSets(resultSets []milvusclient.ResultSet) ([]document.DocumentCollection, error) {
-	documents := make([]document.DocumentCollection, 0)
+func decodeResultSets(resultSets ...milvusclient.ResultSet) (document.DocumentCollection, error) {
+	documents := make(document.DocumentCollection, 0)
 
 	for _, result := range resultSets {
 		idCol := result.GetColumn("id")
 		dynResCol := result.GetColumn("dynamic_json")
 		textCol := result.GetColumn("text")
-		contextCol := result.GetColumn("text_context")
-		hybirdDocuments := make([]document.Document, 0)
+		contextCol := result.GetColumn("context_text")
+		// hybirdDocuments := make([]document.Document, 0)
 		for i := 0; i < result.ResultCount; i++ {
-			currentDoc := document.Document{
-				Score: float64(result.Scores[i]),
+			currentDoc := &document.Document{}
+			if len(result.Scores) > 0 && result.Scores[i] != 0 {
+				currentDoc.Score = float64(result.Scores[i])
 			}
 
 			if idCol != nil {
@@ -311,9 +286,9 @@ func decodeResultSets(resultSets []milvusclient.ResultSet) ([]document.DocumentC
 				currentDoc.Context = context
 			}
 			// fmt.Println(currentDoc)
-			hybirdDocuments = append(hybirdDocuments, currentDoc)
+			documents = append(documents, currentDoc)
 		}
-		documents = append(documents, hybirdDocuments)
+		// documents = append(documents, hybirdDocuments)
 	}
 	return documents, nil
 }

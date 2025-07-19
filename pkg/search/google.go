@@ -7,7 +7,6 @@ import (
 	"github.com/y7ut/potami/internal/conf"
 	"github.com/y7ut/potami/internal/document"
 	"github.com/y7ut/potami/internal/task"
-	"github.com/y7ut/potami/pkg/param"
 	"google.golang.org/api/customsearch/v1"
 	googleOption "google.golang.org/api/option"
 )
@@ -36,31 +35,35 @@ func NewGoogleCustomSearch(options task.WithOption) *GoogleCustomSearch {
 // Search Implements SearchEngine
 func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string) (document.DocumentCollection, error) {
 
-	if err := gcs.applyParams(); err != nil {
-		return nil, err
-	}
-
-	if gcs.Debug {
+	if task.MustBindWithOption(gcs.options, "debug", false) {
 		fmt.Printf("google custom search api input: %s\n", query)
 	}
+
+	maxResults := task.MustBindWithOption(gcs.options, "limit", 10)
+	if maxResults > 100 {
+		return nil, fmt.Errorf("google custom search max results error: %d", maxResults)
+	}
+
 	svc, err := customsearch.NewService(ctx, googleOption.WithAPIKey(gcs.APIKey))
 	if err != nil {
 		return nil, err
 	}
-	documents := make([]document.Document, 0)
-	if gcs.MaxResults > 10 {
+	documents := make([]*document.Document, 0)
+
+	if maxResults > 10 {
+
 		limit := 10
-		for i, page := 1, 1; page <= gcs.MaxResults/limit; i, page = i+10, page+1 {
+		for i, page := 1, 1; page <= maxResults/limit; i, page = i+10, page+1 {
 			currentLimit := limit
-			if page == gcs.MaxResults/limit {
-				currentLimit = gcs.MaxResults - page*limit
+			if page == maxResults/limit {
+				currentLimit = maxResults - page*limit
 			}
 			resp, err := svc.Cse.List().Cx(gcs.CX).Q(query).Start(int64(i)).Num(int64(currentLimit)).Do()
 			if err != nil {
 				return nil, err
 			}
 			for _, result := range resp.Items {
-				documents = append(documents, document.Document{
+				documents = append(documents, &document.Document{
 					Text: result.Snippet,
 					Name: result.Title,
 					Source: &document.Resource{
@@ -73,12 +76,12 @@ func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string) (docume
 		}
 
 	} else {
-		resp, err := svc.Cse.List().Cx(gcs.CX).Q(query).Num(int64(gcs.MaxResults)).Do()
+		resp, err := svc.Cse.List().Cx(gcs.CX).Q(query).Num(int64(maxResults)).Do()
 		if err != nil {
 			return nil, err
 		}
 		for _, result := range resp.Items {
-			documents = append(documents, document.Document{
+			documents = append(documents, &document.Document{
 				Text: result.Snippet,
 				Name: result.Title,
 				Source: &document.Resource{
@@ -93,19 +96,4 @@ func (gcs *GoogleCustomSearch) Search(ctx context.Context, query string) (docume
 
 	return documents, nil
 
-}
-
-// applyParams
-func (gcs *GoogleCustomSearch) applyParams() error {
-
-	if err := param.Assign(&gcs.Debug, gcs.options.GetOptionWithDefault("debug", false)); err != nil {
-		return err
-	}
-	if err := param.Assign(&gcs.MaxResults, gcs.options.GetOptionWithDefault("limit", 10)); err != nil {
-		return err
-	}
-	if gcs.MaxResults > 100 {
-		return fmt.Errorf("google custom search max results error: %d", gcs.MaxResults)
-	}
-	return nil
 }

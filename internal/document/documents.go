@@ -20,10 +20,10 @@ type Document struct {
 	Source   *Resource
 }
 
-type DocumentCollection []Document
+type DocumentCollection []*Document
 
 func (d Document) String() string {
 	// 格式化输出
 	metadata, _ := json.MarshalIndent(d.MetaData, "", "  ")
-	return fmt.Sprintf("ID: %s \nName: %s \nText: %s \nScore: %f \nMetaData: %v\n", d.ID, d.Name, d.Text, d.Score, string(metadata))
+	return fmt.Sprintf("ID: %s Name: %s Text: %s Score: %f MetaData: %v", d.ID, d.Name, d.Text, d.Score, string(metadata))
 }

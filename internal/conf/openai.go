@@ -11,5 +11,6 @@ func GetOpenAIOptions() []option.RequestOption {
 	if OpenAI.BaseURL != "" {
 		options = append(options, option.WithBaseURL(OpenAI.BaseURL))
 	}
+	// options = append(options, option.WithDebugLog(log.Default()))
 	return options
 }

@@ -14,9 +14,9 @@ type LengthSplitter struct {
 func (ls *LengthSplitter) Split(ctx context.Context, resource *document.Resource) document.DocumentCollection {
 	texts := splitByLength(resource.Content, ls.LenFunc, ls.ChunkSize)
 
-	documents := make([]document.Document, 0)
+	documents := make([]*document.Document, 0)
 	for _, text := range texts {
-		documents = append(documents, document.Document{
+		documents = append(documents, &document.Document{
 			Text: text,
 			Name: resource.Name,
 			Source: &document.Resource{

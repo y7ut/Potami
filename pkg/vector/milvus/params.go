@@ -6,6 +6,7 @@ import (
 )
 
 type MilvusParams struct {
+	Dimensions      int64
 	Collection      string
 	Partition       string
 	useBM25         bool
@@ -46,5 +47,11 @@ func WithUseBM25(useBM25 bool) MilvusParamsOption {
 func WithUseContextEmbed(useContextEmbed bool) MilvusParamsOption {
 	return func(m *MilvusParams) {
 		m.useContextEmbed = useContextEmbed
+	}
+}
+
+func WithDimensions(dimensions int64) MilvusParamsOption {
+	return func(m *MilvusParams) {
+		m.Dimensions = dimensions
 	}
 }

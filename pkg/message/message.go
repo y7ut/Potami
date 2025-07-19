@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"text/template"
-
-	"github.com/openai/openai-go"
 )
 
 // 消息的角色, user and assistant and system
@@ -24,9 +22,10 @@ type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 
-	template      *template.Template
-	buffer        *bytes.Buffer
-	OpenAIMessage *openai.ChatCompletionMessageParamUnion
+	CacheControl bool `json:"-"`
+
+	template *template.Template
+	buffer   *bytes.Buffer
 }
 
 var _ Prompt = (*Message)(nil)
@@ -120,6 +119,16 @@ func NewMessage(role string, messageStr string) lazyMessage {
 			return nil, fmt.Errorf("parse message template error: %v", err)
 		}
 		return &Message{Role: role, template: template}, nil
+	}
+}
+
+func NewPromptCacheMessage(role string, messageStr string) lazyMessage {
+	return func() (*Message, error) {
+		template, err := template.New("").Parse(messageStr)
+		if err != nil {
+			return nil, fmt.Errorf("parse message template error: %v", err)
+		}
+		return &Message{Role: role, template: template, CacheControl: true}, nil
 	}
 }
 

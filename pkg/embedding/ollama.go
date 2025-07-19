@@ -2,12 +2,12 @@ package embedding
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/ollama/ollama/api"
 	"github.com/y7ut/potami/internal/conf"
 	"github.com/y7ut/potami/internal/task"
-	"github.com/y7ut/potami/pkg/param"
 )
 
 const (
@@ -35,24 +35,15 @@ func NewOllamaEmbedding(options task.WithOption) *OllamaEmbedding {
 }
 
 func (o *OllamaEmbedding) Embed(ctx context.Context, text string) ([]float64, error) {
-	if err := o.applyParams(); err != nil {
-		return nil, err
-	}
+
 	response, err := o.Client.Embeddings(ctx, &api.EmbeddingRequest{
 		Prompt:  text,
-		Model:   o.Model,
+		Model:   task.MustBindWithOption(o.options, "model", OllamaEmbeddingModel),
 		Options: o.OllamaOptions,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get embedding: %v", err)
 	}
-	
-	return response.Embedding, nil
-}
 
-func (o *OllamaEmbedding) applyParams() error {
-	if err := param.Assign(&o.Model, o.options.GetOptionWithDefault("model", OllamaEmbeddingModel)); err != nil {
-		return err
-	}
-	return nil
+	return response.Embedding, nil
 }

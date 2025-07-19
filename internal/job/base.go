@@ -15,3 +15,7 @@ type Job struct {
 func (j *Job) Handle(context.Context) error {
 	return nil
 }
+
+func NewBlankJob() *Job {
+	return &Job{}
+}

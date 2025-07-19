@@ -10,16 +10,15 @@ import (
 )
 
 const (
-	BM25_B                 = 0.75
-	BM25_K1                = 1.2
-	BM25_SPARSE_DROP_RATIO = 0.3
-	VECTOR_DIMENSION       = 768
-	TEXT_MAX_LENGTH        = 1024
+	BM25_B                 = 0.8
+	BM25_K1                = 1.5
+	BM25_SPARSE_DROP_RATIO = 0.2
+	TEXT_MAX_LENGTH        = 4096
 )
 
 var outputFields = []string{"id", "text", "context_text", "dynamic_json"}
 
-func defaultSchema() *entity.Schema {
+func defaultSchema(vectorDimension int64) *entity.Schema {
 	return entity.NewSchema().WithDynamicFieldEnabled(true).
 		WithField(
 			entity.NewField().WithName("id").
@@ -30,7 +29,7 @@ func defaultSchema() *entity.Schema {
 		WithField(
 			entity.NewField().WithName("text_dense").
 				WithDataType(entity.FieldTypeFloatVector).
-				WithDim(VECTOR_DIMENSION),
+				WithDim(vectorDimension),
 		).
 		WithField(
 			entity.NewField().WithName("text").
@@ -45,11 +44,11 @@ func defaultSchema() *entity.Schema {
 // - name
 // - useBM25
 // - useContextEmbed
-func createCollection(ctx context.Context, client *milvusclient.Client, collectionName string, useBM25 bool, useContextEmbed bool) error {
+func createCollection(ctx context.Context, client *milvusclient.Client, collectionName string, useBM25 bool, useContextEmbed bool, vectorDimension int64) error {
 	var err error
 	var options = make([]milvusclient.CreateIndexOption, 0)
 
-	schema := defaultSchema()
+	schema := defaultSchema(vectorDimension)
 	if useBM25 {
 		// add bm25 and bm25 embedding Function
 		schema.WithField(
@@ -88,14 +87,14 @@ func createCollection(ctx context.Context, client *milvusclient.Client, collecti
 			entity.NewField().
 				WithName("context_emb").
 				WithDataType(entity.FieldTypeFloatVector).
-				WithDim(VECTOR_DIMENSION),
+				WithDim(vectorDimension),
 		)
 
 		options = append(options, milvusclient.NewCreateIndexOption(
 			collectionName,
 			"context_emb",
 			index.NewAutoIndex(entity.MetricType(entity.IP)),
-		).WithIndexName("context_emb"))
+		).WithIndexName("context_dense_emb"))
 	}
 
 	// create text vector index

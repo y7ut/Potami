@@ -9,7 +9,6 @@ import (
 	"github.com/y7ut/potami/internal/conf"
 	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/pkg/message"
-	"github.com/y7ut/potami/pkg/param"
 )
 
 const (
@@ -71,10 +70,7 @@ func (p *OllamaProvider) buildRequest(messages []*message.Message) (*api.ChatReq
 		}
 	}
 
-	var model string
-	if err := param.Assign(&model, p.tracer.GetOptionWithDefault("model", OllamaDefaultCompletionModel)); err != nil {
-		return nil, err
-	}
+	model := task.MustBindWithOption(p.tracer, "model", OllamaDefaultCompletionModel)
 
 	stream := false
 	ollamaOption := make(map[string]interface{})

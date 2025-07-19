@@ -3,13 +3,16 @@ package op
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/y7ut/potami/internal/db"
+	"github.com/y7ut/potami/internal/job"
 	"github.com/y7ut/potami/internal/schema"
+	"github.com/y7ut/potami/internal/vector"
 )
 
 var (
@@ -115,4 +118,38 @@ func GetCorpusList() []*schema.Corpus {
 	return list
 }
 
+func CreateCorpusFromSchema(corpus *schema.Corpus) (*vector.Corpus, error) {
 
+	c := &vector.Corpus{
+		Topic:           corpus.Name,
+		Description:     corpus.Description,
+		CollectionName:  corpus.CollectionName,
+		UseBm25Index:    corpus.UseBm25Index,
+		UseContextEmbed: corpus.UseContextEmbed,
+		VectorDimension: corpus.VectorDimension,
+	}
+
+	embedProviderInit, ok := EmbedProviders[corpus.EmbeddingProvider]
+	if !ok {
+		return nil, fmt.Errorf("unknown embedding provider: %s", corpus.EmbeddingProvider)
+	}
+	embedOptionsHelper := job.NewBlankJob()
+	c.EmbedProvider = embedProviderInit(embedOptionsHelper)
+	embedOptionsHelper.SetOption("dimensions", corpus.VectorDimension)
+
+	contextGenerateLLM, ok := corpus.EmbeddingOptions["context_generate_llm_provider"].(string)
+	if ok {
+		llMProviderInit, ok := LLMProviders[contextGenerateLLM]
+		if !ok {
+			return nil, fmt.Errorf("unknown LLM provider: %s", contextGenerateLLM)
+		}
+		llmOptionsHelper := job.NewBlankJob()
+		c.LLMProvider = llMProviderInit(llmOptionsHelper)
+		contextGenerateLLMModel, ok := corpus.EmbeddingOptions["context_generate_llm_model"].(string)
+		if ok {
+			llmOptionsHelper.SetOption("model", contextGenerateLLMModel)
+		}
+	}
+	c.MilvusConnectionManager = MilvusConnectionPool()
+	return c, nil
+}
