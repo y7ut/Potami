@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/y7ut/potami/internal/document"
+	"github.com/y7ut/potami/internal/job"
 	"github.com/y7ut/potami/internal/op"
-	"github.com/y7ut/potami/internal/schema"
 	"github.com/y7ut/potami/internal/vector"
 	"github.com/y7ut/potami/pkg/spliter"
 )
@@ -118,47 +118,41 @@ var MilvusCmd = &cobra.Command{
 	Short: "Milvus CLI",
 	Run: func(cmd *cobra.Command, args []string) {
 		op.Initialized()
-		corpusSchema := &schema.Corpus{
-			Name:              "语料库-测试8",
-			CollectionName:    "potami_test_8_bm25_context",
-			VectorDimension:   768,
-			EmbeddingProvider: "ollama",
-			EmbeddingOptions: map[string]interface{}{
-				"context_generate_llm_provider": "openai",
-				"context_generate_llm_model":    "anthropic/claude-3.5-haiku",
-			},
-			UseBm25Index:    true,
-			UseContextEmbed: true,
-		}
 
-		myCorpus, err := op.CreateCorpusFromSchema(corpusSchema)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		// corpusSchema, _ := op.GetCorpus("语料库-测试-1")
+
+		// myCorpusBuilder, err := op.GetCorpusBuilder(corpusSchema)
+		// if err != nil {
+		// 	cmd.PrintErrln(err)
+		// 	return
+		// }
+
+		// myCorpus, err := myCorpusBuilder(job.NewBlankJob())
+		// if err != nil {
+		// 	cmd.PrintErrln(err)
+		// 	return
+		// }
+		// UpsertDocsAndSearch(cmd, myCorpus)
 
 		go func() {
 
-			corpusSchema2 := &schema.Corpus{
-				Name:              "语料库-测试7",
-				CollectionName:    "potami_test_7",
-				VectorDimension:   768,
-				EmbeddingProvider: "ollama",
-				EmbeddingOptions: map[string]interface{}{
-					"context_generate_llm_provider": "openai",
-					"context_generate_llm_model":    "anthropic/claude-3.5-haiku",
-				},
-				UseBm25Index:    false,
-				UseContextEmbed: false,
+			corpusSchema2, ok := op.GetCorpus("语料库-测试-2")
+			if !ok {
+				cmd.PrintErrln("语料库-测试-2 不存在")
+				return
 			}
 
-			myCorpus2, err := op.CreateCorpusFromSchema(corpusSchema2)
+			myCorpus2Builder, err := op.GetCorpusBuilder(corpusSchema2)
 			if err != nil {
 				cmd.PrintErrln(err)
 				return
 			}
 
-			UpsertDocsAndSearch(cmd, myCorpus)
+			myCorpus2, err := myCorpus2Builder(job.NewBlankJob())
+			if err != nil {
+				cmd.PrintErrln(err)
+				return
+			}
 
 			UpsertDocsAndSearch(cmd, myCorpus2)
 		}()
@@ -231,6 +225,8 @@ func UpsertDocsAndSearch(cmd *cobra.Command, corpus *vector.Corpus) {
 		cmd.PrintErrln(err)
 		return
 	}
+	
+	cmd.Printf("search docs: %d\n", len(docs))
 	for _, doc := range docs {
 		cmd.Printf("get doc: %s\n", doc)
 	}

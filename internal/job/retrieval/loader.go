@@ -9,17 +9,20 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/y7ut/potami/internal/document"
 	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/internal/vector"
+	"github.com/y7ut/potami/pkg/extractor"
+	"github.com/y7ut/potami/pkg/spliter"
 )
 
+// Loader 加载器
 type Loader struct {
-	ResourceExtractor Extractor
-	ChunkSplitter     Splitter
-	Corpus            vector.Corpus
+	ResourceExtractor extractor.Extractor
+	ChunkSplitter     spliter.Splitter
+	Corpus            *vector.Corpus
 
-	QueryField  string
-	OutputField string
+	Input []string
 	task.JobHelper
 }
 
@@ -34,36 +37,40 @@ func (l *Loader) Handle(ctx context.Context) (err error) {
 		}
 	}()
 
-	resourceAddress, ok := l.GetAttribute(l.QueryField)
-
-	if !ok {
-		err := fmt.Errorf("query field %s not found", l.QueryField)
-		return err
+	docs := make([]*document.Document, 0)
+	for _, inputAttribute := range l.Input {
+		resourceAddress, ok := l.GetAttribute(inputAttribute)
+		if !ok {
+			err := fmt.Errorf("query field %s not found", resourceAddress)
+			return err
+		}
+		switch resourceAddress := resourceAddress.(type) {
+		case string:
+			documents, err := l.loadFromAddress(ctx, resourceAddress, inputAttribute)
+			if err != nil {
+				return err
+			}
+			docs = append(docs, documents...)
+		case []string:
+			for index, address := range resourceAddress {
+				documents, err := l.loadFromAddress(ctx, address, fmt.Sprintf("%s[%d]", inputAttribute, index+1))
+				if err != nil {
+					return err
+				}
+				docs = append(docs, documents...)
+			}
+		default:
+			err := fmt.Errorf("query field %s not address or address list", resourceAddress)
+			return err
+		}
 	}
-
-	address, ok := resourceAddress.(string)
-	if !ok {
-		err := fmt.Errorf("query field %s not string", l.QueryField)
-		return err
-	}
-	
-	resourceData, err := loadResource(address)
-	if err != nil {
-		err = fmt.Errorf("load resource error: %v", err)
-		return err
-	}
-
-	resource, err := l.ResourceExtractor.Extract(ctx, resourceData)
-	if err != nil {
-		return err
-	}
-
-	docs := l.ChunkSplitter.Split(ctx, resource)
 
 	if err = l.Corpus.Upsert(ctx, docs...); err != nil {
 		err = fmt.Errorf("corpus upsert error: %v", err)
 		return
 	}
+
+	l.Logger().WithFields(l.GetAttributes()).Debug("corpus upsert complete")
 
 	return nil
 }
@@ -139,4 +146,25 @@ func loadResource(address string) (io.ReadSeekCloser, error) {
 	default:
 		return nil, fmt.Errorf("unknown resource type: %s", address)
 	}
+}
+
+func (l *Loader) loadFromAddress(ctx context.Context, address string, sourceField string) ([]*document.Document, error) {
+
+	resourceData, err := loadResource(address)
+	if err != nil {
+		err = fmt.Errorf("load resource error: %v", err)
+		return nil, err
+	}
+	l.Logger().WithFields(l.GetAttributes()).Debug("load resource complete")
+
+	resource, err := l.ResourceExtractor.Extract(ctx, resourceData)
+	if err != nil {
+		return nil, err
+	}
+	resource.Address = address
+	resource.Name = sourceField
+	l.Logger().WithFields(l.GetAttributes()).Debug("extract resource complete")
+
+	docs := l.ChunkSplitter.Split(ctx, resource)
+	return docs, nil
 }

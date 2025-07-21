@@ -3,6 +3,7 @@ package retrieval
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/y7ut/potami/internal/document"
 	"github.com/y7ut/potami/internal/task"
@@ -70,6 +71,8 @@ func (r *Retriever) search(ctx context.Context) (document.DocumentCollection, er
 		return nil, err
 	}
 
+	r.Logger().WithField(r.QueryField, question).Debug("retrieval search start")
+	log.Println("retrieval.Retrieval", r.Retrieval)
 	docs, err := r.Retrieval.Query(ctx, question)
 	if err != nil {
 		return nil, err

@@ -79,7 +79,7 @@ func Apply(ctx context.Context, stream *schema.Stream) error {
 				StreamID:    StreamApplyed.ID,
 				Sorted:      int64(i + 1),
 				Name:        job.Name,
-				Type:        job.Type,
+				Type:        string(job.Type),
 				Description: sql.NullString{String: job.Description, Valid: true},
 				LlmModel:    sql.NullString{String: job.LlmModel, Valid: true},
 				LlmProvider: sql.NullString{String: job.LLMProvider, Valid: true},
@@ -109,6 +109,9 @@ func Apply(ctx context.Context, stream *schema.Stream) error {
 				SearchEngine: sql.NullString{String: job.SearchEngine, Valid: true},
 				QueryField:   sql.NullString{String: job.QueryField, Valid: true},
 				OutputField:  sql.NullString{String: job.OutputField, Valid: true},
+				Corpus:       sql.NullString{String: job.Corpus, Valid: true},
+				ResourceType: sql.NullString{String: job.ResourceType, Valid: true},
+				SplitRule:    sql.NullString{String: job.SplitRule, Valid: true},
 			}); err != nil {
 				return fmt.Errorf("create job error, %s", err)
 			}

@@ -1,4 +1,4 @@
-package retrieval
+package spliter
 
 import (
 	"context"

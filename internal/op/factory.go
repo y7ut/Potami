@@ -3,6 +3,7 @@ package op
 import (
 	"sync"
 
+	"github.com/sirupsen/logrus"
 	"github.com/y7ut/potami/internal/conf"
 	"github.com/y7ut/potami/internal/job/chat"
 	"github.com/y7ut/potami/internal/job/retrieval"
@@ -10,8 +11,10 @@ import (
 	"github.com/y7ut/potami/internal/schema"
 	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/pkg/embedding"
+	"github.com/y7ut/potami/pkg/extractor"
 	"github.com/y7ut/potami/pkg/llm"
 	"github.com/y7ut/potami/pkg/search"
+	"github.com/y7ut/potami/pkg/spliter"
 )
 
 const DEFAULT_TASK_LEVEL = 100
@@ -36,11 +39,11 @@ var (
 			return llm.NewOllamaProvider(tracer)
 		},
 	}
-	EmbedProviders = map[string]func(options task.WithOption) embedding.Embed{
-		"ollama": func(options task.WithOption) embedding.Embed {
+	EmbedProviders = map[string]func(options task.Tracer) embedding.Embed{
+		"ollama": func(options task.Tracer) embedding.Embed {
 			return embedding.NewOllamaEmbedding(options)
 		},
-		"openai": func(options task.WithOption) embedding.Embed {
+		"openai": func(options task.Tracer) embedding.Embed {
 			return embedding.NewOpenAIEmbedding(options)
 		},
 	}
@@ -86,7 +89,7 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 			jobs := make([]task.Job, 0)
 			for _, job := range stream.Jobs {
 				descriptionMap[job.Name] = job.Description
-				if job.Type == "prompt" {
+				if job.Type == schema.JobTypePrompt {
 
 					promptJob := &chat.Dialog{
 						Intput:   job.Params,
@@ -125,7 +128,7 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 
 				}
 
-				if job.Type == "api_tool" {
+				if job.Type == schema.JobTypeAPITool {
 					toolJob := &tool.APITool{
 						Endpoint:     job.Endpoint,
 						HttpMethod:   job.Method,
@@ -137,18 +140,64 @@ func LoadStream(conf map[string]*schema.Stream) (map[string]func() []task.Job, m
 					jobs = append(jobs, toolJob)
 				}
 
-				if job.Type == "search" {
-					searchEngineInit, ok := SearchRetrievers[job.SearchEngine]
-					if !ok {
-						searchEngineInit = SearchRetrievers["tavily"]
+				if job.Type == schema.JobTypeEmbedding {
+
+					embeddingJob := &retrieval.Loader{
+						Input: job.Params,
 					}
+					corpusBuilder, ok := corpusInits[job.Corpus]
+					if !ok {
+						logrus.Errorf("Failed to get corpus %s", job.Corpus)
+						continue
+					}
+					corpus, err := corpusBuilder(embeddingJob)
+					if err != nil {
+						logrus.WithError(err).Errorf("Failed to initialize corpus %s", job.Corpus)
+						continue
+					}
+					embeddingJob.Corpus = corpus
+					embeddingJob.ChunkSplitter = &spliter.AutoSplitter{
+						ChunkSize: 1024,
+					}
+					switch job.ResourceType {
+					case "text":
+						embeddingJob.ResourceExtractor = &extractor.TextExtractor{}
+					case "html":
+						embeddingJob.ResourceExtractor = &extractor.HTMLExtractor{}
+					case "pdf":
+						embeddingJob.ResourceExtractor = &extractor.PDFExtractor{}
+					default:
+						embeddingJob.ResourceExtractor = &extractor.TextExtractor{}
+					}
+				}
+
+				if job.Type == schema.JobTypeSearch {
 
 					searchJob := &retrieval.Retriever{
 						QueryField:  job.QueryField,
 						OutputField: job.OutputField,
 					}
+					if job.SearchEngine != "" {
+						searchEngineInit, ok := SearchRetrievers[job.SearchEngine]
+						if !ok {
+							searchEngineInit = SearchRetrievers["tavily"]
+						}
+						searchJob.Retrieval = retrieval.NewWebSearchRetriever(searchEngineInit(searchJob))
+					}
 
-					searchJob.Retrieval = retrieval.NewWebSearchRetriever(searchEngineInit(searchJob))
+					if job.Corpus != "" {
+						corpusBuilder, ok := corpusInits[job.Corpus]
+						if !ok {
+							logrus.Errorf("Failed to get corpus %s", job.Corpus)
+							continue
+						}
+						corpus, err := corpusBuilder(searchJob)
+						if err != nil {
+							logrus.WithError(err).Errorf("Failed to initialize corpus %s", job.Corpus)
+							continue
+						}
+						searchJob.Retrieval = retrieval.NewKnowledgeBaseSearchRetriever(corpus, searchJob)
+					}
 
 					if limit, ok := job.SearchOptions["limit"]; ok {
 						searchJob.SetOption("limit", limit)

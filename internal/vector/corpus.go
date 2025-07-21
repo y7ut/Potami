@@ -22,14 +22,19 @@ const (
 {{.chunk_content}}
 </chunk>
 
-Please give a short succinct context using the language of the original document to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk.
+{{.context_generated_prompt}}`
+
+	contextGeneratedPrompt = `Please give a short succinct context using the language of the original document to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk.
 Answer only with the succinct context and nothing else.`
 )
 
 type Corpus struct {
-	Topic           string
-	Description     string
-	CollectionName  string
+	Topic          string
+	Description    string
+	CollectionName string
+
+	ContextEmbedPrompt string
+
 	UseBm25Index    bool
 	UseContextEmbed bool
 
@@ -100,10 +105,15 @@ func (c *Corpus) contextEmbedding(ctx context.Context, doc *document.Document) e
 		message.NewPromptCacheMessage(message.RoleUser, contentPrompt),
 		message.NewUserMessage(chunkPrompt),
 	)
-	messages, err := messageTemplate.RenderMessages(map[string]interface{}{
-		"chunk_content": doc.Text,
-		"doc_content":   doc.Source.Content,
-	})
+	messageParams := map[string]interface{}{
+		"chunk_content":            doc.Text,
+		"doc_content":              doc.Source.Content,
+		"context_generated_prompt": contextGeneratedPrompt,
+	}
+	if c.ContextEmbedPrompt != "" {
+		messageParams["context_generated_prompt"] = c.ContextEmbedPrompt
+	}
+	messages, err := messageTemplate.RenderMessages(messageParams)
 	if err != nil {
 		return fmt.Errorf("failed to render prompt: %v", err)
 	}

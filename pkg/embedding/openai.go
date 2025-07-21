@@ -37,7 +37,7 @@ func (o *OpenAIEmbedding) Embed(ctx context.Context, text string) ([]float64, er
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfString: openai.String(text),
 		},
-		Model:          task.MustBindWithOption(o.options, "model", OpenAIDefaultEmbeddingModel),
+		Model:          task.MustBindWithOption(o.options, "embedding_model", OpenAIDefaultEmbeddingModel),
 		Dimensions:     openai.Int(task.MustBindWithOption[int64](o.options, "dimensions", 1024)),
 		EncodingFormat: openai.EmbeddingNewParamsEncodingFormatFloat,
 	}

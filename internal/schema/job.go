@@ -1,9 +1,18 @@
 package schema
 
+const (
+	JobTypePrompt    = "prompt"
+	JobTypeAPITool   = "api_tool"
+	JobTypeSearch    = "search"
+	JobTypeEmbedding = "loader"
+)
+
+type JobType string
+
 type Job struct {
-	Name        string `mapstructure:"name" json:"name" yaml:"name"`                                                   // job 的名称
-	Type        string `mapstructure:"type" json:"type" yaml:"type" validate:"required,oneof=prompt api_tool search" ` // job 的类型
-	Description string `mapstructure:"description" json:"description" yaml:"description"`                              // 通用 job 的描述
+	Name        string  `mapstructure:"name" json:"name" yaml:"name"`                                                   // job 的名称
+	Type        JobType `mapstructure:"type" json:"type" yaml:"type" validate:"required,oneof=prompt api_tool search" ` // job 的类型
+	Description string  `mapstructure:"description" json:"description" yaml:"description"`                              // 通用 job 的描述
 
 	// prompt 类型 job 的属性
 	LlmModel     string   `mapstructure:"llm_model,omitempty" json:"llm_model,omitempty" yaml:"llm_model,omitempty"`             // 仅在 prompt 类型的 job 中使用
@@ -12,9 +21,9 @@ type Job struct {
 	TopP         float64  `mapstructure:"top_p,omitempty" json:"top_p,omitempty" yaml:"top_p,omitempty"`                         // 仅在 prompt 类型的 job 中使用
 	MaxTokens    int      `mapstructure:"max_tokens,omitempty" json:"max_tokens,omitempty" yaml:"max_tokens,omitempty"`          // 仅在 prompt 类型的 job 中使用
 	SystemPrompt string   `mapstructure:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"` // 仅在 prompt 类型的 job 中使用
-	Template     string   `mapstructure:"template,omitempty" json:"template,omitempty" yaml:"template,omitempty"`
-	Params       []string `mapstructure:"params,omitempty" json:"params,omitempty" yaml:"params,omitempty"`
-	Output       []string `mapstructure:"output,omitempty" json:"output,omitempty" yaml:"output,omitempty"`
+	Template     string   `mapstructure:"template,omitempty" json:"template,omitempty" yaml:"template,omitempty"`                // 仅在 prompt 类型的 job 中使用
+	Params       []string `mapstructure:"params,omitempty" json:"params,omitempty" yaml:"params,omitempty"`                      // 多个输入参数
+	Output       []string `mapstructure:"output,omitempty" json:"output,omitempty" yaml:"output,omitempty"`                      // 多个输出
 
 	// api_tool 类型 job 的属性
 	Endpoint string `mapstructure:"endpoint,omitempty" json:"endpoint,omitempty" yaml:"endpoint,omitempty"` // 仅在 api_tool 类型的 job 中使用
@@ -26,7 +35,10 @@ type Job struct {
 	SearchEngine  string                 `mapstructure:"search_engine,omitempty" json:"search_engine,omitempty" yaml:"search_engine,omitempty"`    // 仅在 search 类型的 job 中使用
 	Corpus        string                 `mapstructure:"corpus,omitempty" json:"corpus,omitempty" yaml:"corpus,omitempty"`                         // 仅在 search 类型的 job 中使用
 	SearchOptions map[string]interface{} `mapstructure:"search_options,omitempty" json:"search_options,omitempty" yaml:"search_options,omitempty"` // 仅在 search 类型的 job 中使用
-	QueryField    string                 `mapstructure:"query_field,omitempty" json:"query_field,omitempty" yaml:"query_field,omitempty"`          // 仅在 search 类型的 job 中使用
-	OutputField   string                 `mapstructure:"output_field,omitempty" json:"output_field,omitempty" yaml:"output_field,omitempty"`       // 仅在 search 类型的 job 中使用
+	QueryField    string                 `mapstructure:"query_field,omitempty" json:"query_field,omitempty" yaml:"query_field,omitempty"`          // 仅在 search 类型的 job 中使用, 单个输入参数
+	OutputField   string                 `mapstructure:"output_field,omitempty" json:"output_field,omitempty" yaml:"output_field,omitempty"`       // 仅在 search 类型的 job 中使用, 单个输出
 
+	// loader 类型 job 的属性
+	ResourceType string `mapstructure:"resource_type,omitempty" json:"resource_type,omitempty" yaml:"resource_type,omitempty"` // 仅在 loader 类型的 job 中使用
+	SplitRule    string `mapstructure:"split_rule,omitempty" json:"split_rule,omitempty" yaml:"split_rule,omitempty"`          // 仅在 loader 类型的 job 中使用
 }

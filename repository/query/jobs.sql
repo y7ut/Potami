@@ -12,14 +12,14 @@ SELECT * FROM jobs WHERE stream_id = ? ORDER BY sorted;
 
 
 -- name: CreateJob :one
-INSERT INTO jobs (stream_id, sorted, name, type, description, llm_model, system_prompt, max_tokens, top_p, temperature, template, method, endpoint, params, output, output_parses, search_engine, search_options, query_field, output_field, llm_provider)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO jobs (stream_id, sorted, name, type, description, llm_model, system_prompt, max_tokens, top_p, temperature, template, method, endpoint, params, output, output_parses, search_engine, search_options, query_field, output_field, llm_provider, corpus, resource_type, split_rule)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 
 -- name: UpdateJob :one
 UPDATE jobs
-SET name = ?, type = ?, sorted = ?, description = ?, llm_model = ?, system_prompt = ?, max_tokens = ?, top_p = ?, temperature = ?, template = ?, method = ?, endpoint = ?, params = ?, output = ?, output_parses = ?, search_engine = ?, search_options = ?, query_field = ?, output_field = ?, llm_provider = ?
+SET name = ?, type = ?, sorted = ?, description = ?, llm_model = ?, system_prompt = ?, max_tokens = ?, top_p = ?, temperature = ?, template = ?, method = ?, endpoint = ?, params = ?, output = ?, output_parses = ?, search_engine = ?, search_options = ?, query_field = ?, output_field = ?, llm_provider = ?, corpus = ?, resource_type = ?, split_rule = ?
 WHERE id = ?
 RETURNING *;
 

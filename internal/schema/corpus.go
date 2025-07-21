@@ -5,14 +5,14 @@ type Corpus struct {
 	Name               string `mapstructure:"name" json:"name" yaml:"name"`
 	Description        string `mapstructure:"description" json:"description" yaml:"description"`
 	CollectionName     string `mapstructure:"collection_name" json:"collection_name" yaml:"collection_name"`
-	RerankFusionMethod string `mapstructure:"rerank_fusion_method" json:"rerank_fusion_method" yaml:"rerank_fusion_method"`
+	RerankFusionMethod string `mapstructure:"rerank_fusion_method" json:"rerank_fusion_method" yaml:"rerank_fusion_method"` // todo: 目前支持通过milvus内置的rerank进行rerank
 
 	EmbeddingProvider string `mapstructure:"embedding_provider" json:"embedding_provider" yaml:"embedding_provider"`
 	EmbeddingModel    string `mapstructure:"embedding_model" json:"embedding_model" yaml:"embedding_model"`
 
 	EmbeddingOptions map[string]interface{} `mapstructure:"embedding_options" json:"embedding_options" yaml:"embedding_options"`
 
-	VectorStore      string `mapstructure:"vector_store" json:"vector_store" yaml:"vector_store"`
+	VectorStore      string `mapstructure:"vector_store" json:"vector_store" yaml:"vector_store"` // todo: 目前支持milvus
 	VectorDimension  int64  `mapstructure:"vector_dimension" json:"vector_dimension" yaml:"vector_dimension"`
 	VectorMetricType string `mapstructure:"vector_metric_type" json:"vector_metric_type" yaml:"vector_metric_type"`
 

@@ -51,6 +51,9 @@ type Job struct {
 	QueryField    sql.NullString  `json:"query_field"`
 	OutputField   sql.NullString  `json:"output_field"`
 	LlmProvider   sql.NullString  `json:"llm_provider"`
+	Corpus        sql.NullString  `json:"corpus"`
+	SplitRule     sql.NullString  `json:"split_rule"`
+	ResourceType  sql.NullString  `json:"resource_type"`
 }
 
 type Stream struct {

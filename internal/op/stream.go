@@ -123,7 +123,7 @@ func convertDBJobToSchemaJob(job *db.Job) (*schema.Job, error) {
 
 	return &schema.Job{
 		Name:          job.Name,
-		Type:          job.Type,
+		Type:          schema.JobType(job.Type),
 		Description:   job.Description.String,
 		Params:        params,
 		LlmModel:      job.LlmModel.String,
@@ -141,6 +141,9 @@ func convertDBJobToSchemaJob(job *db.Job) (*schema.Job, error) {
 		SearchOptions: searchOptions,
 		QueryField:    job.QueryField.String,
 		OutputField:   job.OutputField.String,
+		Corpus:        job.Corpus.String,
+		ResourceType:  job.ResourceType.String,
+		SplitRule:    job.SplitRule.String,
 	}, nil
 }
 
@@ -178,7 +181,7 @@ func GetStreamList() []*schema.HumanFriendlyStreamConfig {
 			jobs = append(jobs, map[string]string{
 				"name":        job.Name,
 				"description": job.Description,
-				"type":        job.Type,
+				"type":        string(job.Type),
 			})
 			if job.Params != nil {
 				for _, p := range job.Params {

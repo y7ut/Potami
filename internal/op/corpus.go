@@ -10,13 +10,16 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/y7ut/potami/internal/db"
-	"github.com/y7ut/potami/internal/job"
 	"github.com/y7ut/potami/internal/schema"
+	"github.com/y7ut/potami/internal/task"
 	"github.com/y7ut/potami/internal/vector"
+	"github.com/y7ut/potami/pkg/embedding"
+	"github.com/y7ut/potami/pkg/llm"
 )
 
 var (
-	corpus      map[string]*schema.Corpus
+	corpusInits map[string]CorpusBuilder
+	corpusInfo  map[string]*schema.Corpus
 	corpusOnce  sync.Once
 	corpusMutex sync.RWMutex
 )
@@ -24,7 +27,8 @@ var (
 // InitCorpus initializes the corpus
 func InitCorpus() {
 	corpusOnce.Do(func() {
-		corpus = make(map[string]*schema.Corpus)
+		corpusInits = make(map[string]CorpusBuilder)
+		corpusInfo = make(map[string]*schema.Corpus)
 		if err := loadCorpusFromDB(); err != nil {
 			logrus.WithError(err).Fatal("Failed to initialize corpus from database")
 		}
@@ -42,7 +46,12 @@ func loadCorpusFromDB() error {
 	defer corpusMutex.Unlock()
 	for _, c := range corpusFromDB {
 		logrus.Infof("Initializing corpus from DB: %s", c.Name)
-		corpus[c.Name] = c
+		icb, err := GetCorpusBuilder(c)
+		if err != nil {
+			return err
+		}
+		corpusInits[c.Name] = icb
+		corpusInfo[c.Name] = c
 	}
 	return nil
 }
@@ -59,9 +68,9 @@ func fetchAndBuildCorpus() (map[string]*schema.Corpus, error) {
 	corpusResult := make(map[string]*schema.Corpus)
 	for _, c := range dbCorpus {
 		EmbeddingOptions := make(map[string]interface{})
-		if c.EmbeddingOptions.Valid {
+		if c.EmbeddingOptions.Valid && c.EmbeddingOptions.String != "" {
 			if err := json.Unmarshal([]byte(c.EmbeddingOptions.String), &EmbeddingOptions); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to unmarshal embedding options: %w", err)
 			}
 		}
 		corpusResult[c.Name] = &schema.Corpus{
@@ -86,28 +95,38 @@ func fetchAndBuildCorpus() (map[string]*schema.Corpus, error) {
 func GetCorpus(name string) (c *schema.Corpus, ok bool) {
 	corpusMutex.RLock()
 	defer corpusMutex.RUnlock()
-	c, ok = corpus[name]
+	c, ok = corpusInfo[name]
 	return
 }
 
-func UpdateCorpus(c *schema.Corpus) {
+func UpdateCorpus(c *schema.Corpus) error {
 	corpusMutex.Lock()
 	defer corpusMutex.Unlock()
-	corpus[c.Name] = c
+
+	initCorpus, err := GetCorpusBuilder(c)
+	if err != nil {
+		return err
+	}
+	corpusInits[c.Name] = initCorpus
+
+	corpusInfo[c.Name] = c
+	return nil
 }
 
 func RemoveCorpus(name string) {
 	corpusMutex.Lock()
 	defer corpusMutex.Unlock()
-	delete(corpus, name)
+	
+	delete(corpusInfo, name)
+	delete(corpusInits, name)
 }
 
 func GetCorpusList() []*schema.Corpus {
 	corpusMutex.RLock()
 	defer corpusMutex.RUnlock()
 
-	list := make([]*schema.Corpus, 0, len(corpus))
-	for _, c := range corpus {
+	list := make([]*schema.Corpus, 0, len(corpusInits))
+	for _, c := range corpusInfo {
 		list = append(list, c)
 	}
 
@@ -118,38 +137,51 @@ func GetCorpusList() []*schema.Corpus {
 	return list
 }
 
-func CreateCorpusFromSchema(corpus *schema.Corpus) (*vector.Corpus, error) {
+type CorpusBuilder func(optionHelper task.Tracer) (*vector.Corpus, error)
 
-	c := &vector.Corpus{
-		Topic:           corpus.Name,
-		Description:     corpus.Description,
-		CollectionName:  corpus.CollectionName,
-		UseBm25Index:    corpus.UseBm25Index,
-		UseContextEmbed: corpus.UseContextEmbed,
-		VectorDimension: corpus.VectorDimension,
-	}
+func GetCorpusBuilder(corpus *schema.Corpus) (func(optionHelper task.Tracer) (*vector.Corpus, error), error) {
 
+	var embedProviderInit func(optionHelper task.Tracer) embedding.Embed
 	embedProviderInit, ok := EmbedProviders[corpus.EmbeddingProvider]
 	if !ok {
 		return nil, fmt.Errorf("unknown embedding provider: %s", corpus.EmbeddingProvider)
 	}
-	embedOptionsHelper := job.NewBlankJob()
-	c.EmbedProvider = embedProviderInit(embedOptionsHelper)
-	embedOptionsHelper.SetOption("dimensions", corpus.VectorDimension)
 
-	contextGenerateLLM, ok := corpus.EmbeddingOptions["context_generate_llm_provider"].(string)
-	if ok {
-		llMProviderInit, ok := LLMProviders[contextGenerateLLM]
+	var llMProviderInit func(optionHelper task.Tracer) llm.Provider
+	if contextGenerateLLM, ok := corpus.EmbeddingOptions["context_generate_llm_provider"].(string); ok {
+		llMProviderInit, ok = LLMProviders[contextGenerateLLM]
 		if !ok {
 			return nil, fmt.Errorf("unknown LLM provider: %s", contextGenerateLLM)
 		}
-		llmOptionsHelper := job.NewBlankJob()
-		c.LLMProvider = llMProviderInit(llmOptionsHelper)
-		contextGenerateLLMModel, ok := corpus.EmbeddingOptions["context_generate_llm_model"].(string)
-		if ok {
-			llmOptionsHelper.SetOption("model", contextGenerateLLMModel)
-		}
 	}
-	c.MilvusConnectionManager = MilvusConnectionPool()
-	return c, nil
+
+	return func(optionHelper task.Tracer) (*vector.Corpus, error) {
+		c := &vector.Corpus{
+			Topic:           corpus.Name,
+			Description:     corpus.Description,
+			CollectionName:  corpus.CollectionName,
+			UseBm25Index:    corpus.UseBm25Index,
+			UseContextEmbed: corpus.UseContextEmbed,
+			VectorDimension: corpus.VectorDimension,
+		}
+
+		c.EmbedProvider = embedProviderInit(optionHelper)
+		if corpus.VectorDimension > 0 {
+			optionHelper.SetOption("dimensions", corpus.VectorDimension)
+		}
+
+		if corpus.EmbeddingModel != "" {
+			optionHelper.SetOption("embedding_model", corpus.EmbeddingModel)
+		}
+
+		if llMProviderInit != nil {
+			c.LLMProvider = llMProviderInit(optionHelper)
+			contextGenerateLLMModel, ok := corpus.EmbeddingOptions["context_generate_llm_model"].(string)
+			if ok {
+				optionHelper.SetOption("model", contextGenerateLLMModel)
+			}
+		}
+		c.MilvusConnectionManager = MilvusConnectionPool()
+		return c, nil
+	}, nil
 }

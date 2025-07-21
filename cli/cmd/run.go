@@ -97,17 +97,16 @@ var CompleteCommand = &cobra.Command{
 		}
 
 		options := make(map[string]map[string]interface{})
-		if completeOptions != nil {
-			for optionName, v := range completeOptions {
-				optionKey := strings.Split(optionName, ".")
-				if len(optionKey) != 2 {
-					continue
-				}
-				if options[optionKey[0]] == nil {
-					options[optionKey[0]] = make(map[string]interface{})
-				}
-				options[optionKey[0]][optionKey[1]] = v
+
+		for optionName, v := range completeOptions {
+			optionKey := strings.Split(optionName, ".")
+			if len(optionKey) != 2 {
+				continue
 			}
+			if options[optionKey[0]] == nil {
+				options[optionKey[0]] = make(map[string]interface{})
+			}
+			options[optionKey[0]][optionKey[1]] = v
 		}
 
 		CompletionTask := &api.StreamTask{

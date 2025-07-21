@@ -1,0 +1,3 @@
+ALTER TABLE jobs ADD COLUMN corpus TEXT;
+ALTER TABLE jobs ADD COLUMN split_rule TEXT;
+ALTER TABLE jobs ADD COLUMN resource_type TEXT;

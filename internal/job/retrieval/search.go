@@ -2,6 +2,7 @@ package retrieval
 
 import (
 	"context"
+	"log"
 
 	"github.com/y7ut/potami/internal/document"
 	"github.com/y7ut/potami/internal/task"
@@ -31,14 +32,15 @@ func NewWebSearchRetriever[T search.SearchEngine](searchEngine T) *WebSearchRetr
 
 // KnowledgeBaseSearchRetriever 语料库检索器
 type KnowledgeBaseSearchRetriever struct {
-	Corpus vector.Corpus
+	Corpus *vector.Corpus
 
 	options task.WithOption
 }
 
 // Query Implements Retriever
 func (sr *KnowledgeBaseSearchRetriever) Query(ctx context.Context, query string) (document.DocumentCollection, error) {
-	limit := task.MustBindWithOption(sr.options, "limit", 3)
+	limit := task.MustBindWithOption(sr.options, "query_size", 3)
+	log.Println("corpus", sr.Corpus)
 	docs, err := sr.Corpus.Search(ctx, query, limit)
 	if err != nil {
 		return nil, err
@@ -46,6 +48,6 @@ func (sr *KnowledgeBaseSearchRetriever) Query(ctx context.Context, query string)
 	return docs, nil
 }
 
-func NewKnowledgeBaseSearchRetriever(corpus vector.Corpus) *KnowledgeBaseSearchRetriever {
-	return &KnowledgeBaseSearchRetriever{Corpus: corpus}
+func NewKnowledgeBaseSearchRetriever(corpus *vector.Corpus, options task.WithOption) *KnowledgeBaseSearchRetriever {
+	return &KnowledgeBaseSearchRetriever{Corpus: corpus, options: options}
 }

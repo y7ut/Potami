@@ -38,7 +38,7 @@ func (o *OllamaEmbedding) Embed(ctx context.Context, text string) ([]float64, er
 
 	response, err := o.Client.Embeddings(ctx, &api.EmbeddingRequest{
 		Prompt:  text,
-		Model:   task.MustBindWithOption(o.options, "model", OllamaEmbeddingModel),
+		Model:   task.MustBindWithOption(o.options, "embedding_model", OllamaEmbeddingModel),
 		Options: o.OllamaOptions,
 	})
 	if err != nil {

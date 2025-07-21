@@ -29,6 +29,7 @@ func Initialized() {
 		},
 	)
 	InitStreams()
+	InitCorpus()
 	InitStreamFactory()
 	logrus.Info("op initialized")
 }

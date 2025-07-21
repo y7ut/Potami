@@ -200,7 +200,7 @@ var InfoCommand = &cobra.Command{
 				paramsLine += v.QueryField
 				outputsLine += v.OutputField
 			}
-			table.AddRow([]string{v.Name, v.Description, v.Type, paramsLine, outputsLine})
+			table.AddRow([]string{v.Name, v.Description, string(v.Type), paramsLine, outputsLine})
 		}
 
 		table.Render()
